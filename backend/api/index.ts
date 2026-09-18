@@ -12,6 +12,7 @@ let server: Express | undefined;
 async function bootstrapServer(): Promise<Express> {
   const expressApp = express();
   const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
+  app.enableCors();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.init();
   return expressApp;

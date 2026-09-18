@@ -1,0 +1,49 @@
+export const CATEGORIAS = [
+  'sem_site',
+  'sem_ecommerce',
+  'site_institucional',
+  'site_desatualizado',
+  'descartado',
+] as const;
+export type Categoria = (typeof CATEGORIAS)[number];
+
+export const PRIORIDADES = ['quente', 'morno', 'baixa'] as const;
+export type Prioridade = (typeof PRIORIDADES)[number];
+
+export const STATUSES = [
+  'novo',
+  'contatado',
+  'aguardando_followup',
+  'esgotado',
+  'descartado',
+  'destaque',
+] as const;
+export type Status = (typeof STATUSES)[number];
+
+export interface Lead {
+  id: number;
+  place_id: string | null;
+  telefone_normalizado: string | null;
+  nome_loja: string;
+  nicho: string | null;
+  cidade: string;
+  endereco: string | null;
+  instagram_handle: string | null;
+  site_url: string | null;
+  categoria: Categoria | null;
+  score: number;
+  prioridade: Prioridade | null;
+  status: Status;
+  tentativas: number;
+  data_primeiro_contato: string | null;
+  data_ultimo_contato: string | null;
+  resposta_sentimento: 'positiva' | 'negativa' | null;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+export interface FiltrosLeads {
+  categoria?: Categoria;
+  prioridade?: Prioridade;
+  status?: Status;
+}
