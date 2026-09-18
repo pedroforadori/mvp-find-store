@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Optional
 
 
@@ -34,3 +35,16 @@ class Lead:
     prioridade: str
     sinais: SinaisLead
     cidade: str = "São Paulo"
+
+
+@dataclass
+class LeadParaContato:
+    """Projeção de `leads` usada pela lógica de disparo (1º contato/follow-up)."""
+
+    id: int
+    telefone_normalizado: Optional[str]
+    nome_loja: str
+    categoria: str
+    status: str
+    tentativas: int
+    data_ultimo_contato: Optional[datetime]

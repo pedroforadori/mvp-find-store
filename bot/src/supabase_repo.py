@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import List, Optional
 
-from .models import Lead
+from .models import Lead, LeadParaContato
 
 _INSERT_LEAD_BASE = """
     INSERT INTO leads (
@@ -13,6 +13,36 @@ _INSERT_LEAD_BASE = """
     )
     ON CONFLICT ({conflict_target}) DO NOTHING
     RETURNING id
+"""
+
+_SELECT_LEADS_POR_STATUS = """
+    SELECT id, telefone_normalizado, nome_loja, categoria, status, tentativas, data_ultimo_contato
+    FROM leads
+    WHERE status = %(status)s
+"""
+
+_UPDATE_STATUS = """
+    UPDATE leads SET status = %(status)s, atualizado_em = now() WHERE id = %(id)s
+"""
+
+_INSERT_HISTORICO = """
+    INSERT INTO historico_contatos (lead_id, canal, mensagem_enviada, resultado)
+    VALUES (%(lead_id)s, 'whatsapp', %(mensagem)s, %(resultado)s)
+"""
+
+_UPDATE_PRIMEIRO_CONTATO = """
+    UPDATE leads
+    SET status = %(status)s, tentativas = tentativas + 1,
+        data_primeiro_contato = COALESCE(data_primeiro_contato, now()),
+        data_ultimo_contato = now(), atualizado_em = now()
+    WHERE id = %(id)s
+"""
+
+_UPDATE_FOLLOWUP = """
+    UPDATE leads
+    SET status = %(status)s, tentativas = tentativas + 1,
+        data_ultimo_contato = now(), atualizado_em = now()
+    WHERE id = %(id)s
 """
 
 _INSERT_DIAGNOSTICO = """
@@ -83,4 +113,44 @@ class LeadRepository:
         }
         with self._conn.cursor() as cur:
             cur.execute(_INSERT_DIAGNOSTICO, params)
+        self._conn.commit()
+
+    def buscar_leads_por_status(self, status: str) -> List[LeadParaContato]:
+        with self._conn.cursor() as cur:
+            cur.execute(_SELECT_LEADS_POR_STATUS, {"status": status})
+            rows = cur.fetchall()
+        return [
+            LeadParaContato(
+                id=row[0],
+                telefone_normalizado=row[1],
+                nome_loja=row[2],
+                categoria=row[3],
+                status=row[4],
+                tentativas=row[5],
+                data_ultimo_contato=row[6],
+            )
+            for row in rows
+        ]
+
+    def atualizar_status(self, lead_id: int, status: str) -> None:
+        with self._conn.cursor() as cur:
+            cur.execute(_UPDATE_STATUS, {"status": status, "id": lead_id})
+        self._conn.commit()
+
+    def registrar_envio(self, lead: LeadParaContato, mensagem: str, tipo: str, sucesso: bool) -> None:
+        """Grava o histórico de contato e, se enviado com sucesso, avança o status do lead.
+
+        Em caso de falha de envio não avançamos tentativas/status — o lead volta a
+        ser candidato na próxima execução do pipeline, em vez de "queimar" uma
+        tentativa por um erro transitório da API do WhatsApp.
+        """
+        resultado = "entregue" if sucesso else "falhou"
+        with self._conn.cursor() as cur:
+            cur.execute(_INSERT_HISTORICO, {"lead_id": lead.id, "mensagem": mensagem, "resultado": resultado})
+
+            if sucesso:
+                if tipo == "primeiro_contato":
+                    cur.execute(_UPDATE_PRIMEIRO_CONTATO, {"status": "contatado", "id": lead.id})
+                else:
+                    cur.execute(_UPDATE_FOLLOWUP, {"status": "aguardando_followup", "id": lead.id})
         self._conn.commit()
