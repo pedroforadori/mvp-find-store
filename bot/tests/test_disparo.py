@@ -116,6 +116,23 @@ def test_executar_disparo_nao_conta_envio_com_falha():
     repo.registrar_envio.assert_called_once()
 
 
+def test_executar_disparo_respeita_limite_diario_mesmo_com_falhas():
+    """O limite diário existe pra controlar volume de tentativas/exposição
+    do número (warm-up), não só envios entregues — numa falha sistêmica da
+    API (ex: conta restrita), o bot não pode tentar todos os leads elegíveis
+    sem limite."""
+    leads_novos = [_lead(id=i) for i in range(5)]
+    repo = _repo_vazio()
+    repo.buscar_leads_por_status.side_effect = lambda status: leads_novos if status == "novo" else []
+    whatsapp = MagicMock()
+    whatsapp.enviar_mensagem_interativa.return_value = False
+
+    contagens = executar_disparo(repo, whatsapp, limite_disparos_dia=2, agora=AGORA)
+
+    assert contagens == {"primeiro_contato": 0, "followup": 0, "esgotados": 0}
+    assert whatsapp.enviar_mensagem_interativa.call_count == 2
+
+
 def test_executar_disparo_ignora_lead_sem_telefone():
     repo = _repo_vazio()
     repo.buscar_leads_por_status.side_effect = lambda status: [_lead(telefone_normalizado=None)] if status == "novo" else []

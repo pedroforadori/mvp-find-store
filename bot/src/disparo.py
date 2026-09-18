@@ -48,9 +48,9 @@ def executar_disparo(repositorio, whatsapp_client, limite_disparos_dia: int,
     fila = [("followup", lead) for lead in leads_para_followup(repositorio, agora)]
     fila += [("primeiro_contato", lead) for lead in leads_para_primeiro_contato(repositorio)]
 
-    enviados = 0
+    tentativas_hoje = 0
     for tipo, lead in fila:
-        if enviados >= limite_disparos_dia:
+        if tentativas_hoje >= limite_disparos_dia:
             break
         if not lead.telefone_normalizado:
             continue
@@ -59,8 +59,12 @@ def executar_disparo(repositorio, whatsapp_client, limite_disparos_dia: int,
         sucesso = whatsapp_client.enviar_mensagem_interativa(lead.telefone_normalizado, mensagem)
         repositorio.registrar_envio(lead, mensagem, tipo, sucesso)
 
+        # Conta a tentativa mesmo em falha: o limite diário existe pra
+        # controlar volume de chamadas à API/exposição do número (warm-up),
+        # não só envios entregues — senão uma falha sistêmica (ex: conta
+        # restrita) faz o bot tentar TODOS os leads elegíveis sem limite.
+        tentativas_hoje += 1
         if sucesso:
-            enviados += 1
             contagens[tipo] += 1
 
     return contagens
