@@ -22,27 +22,27 @@ com deduplicação e follow-up automático.
   (descoberta/qualificação/scoring). Não passa pela API Nest para isso;
   o Nest apenas lê esses dados depois.
 - Responsabilidades por pasta:
-  - `bot-python/`: descoberta, qualificação, scoring, grava leads no
+  - `bot/`: descoberta, qualificação, scoring, grava leads no
     Supabase, dispara mensagens via WhatsApp Cloud API.
-  - `backend-nest/`: única porta de entrada para o frontend; webhook do
+  - `backend/`: única porta de entrada para o frontend; webhook do
     WhatsApp; regras de negócio (transição de status, follow-up); toda
     leitura/escrita do Supabase para fins de dashboard.
-  - `frontend-react/`: consome exclusivamente a API do Nest.
+  - `frontend/`: consome exclusivamente a API do Nest.
 
 ## Estrutura do repositório
 Repo único, três pastas independentes na raiz, sem tooling de monorepo
 (sem Turborepo/Nx, sem build/cache compartilhado):
 
 ```
-/bot-python/       -> script(s) + workflow do GitHub Actions
-/backend-nest/     -> API Nest, deploy independente na Vercel
-/frontend-react/   -> dashboard React, deploy independente na Vercel
+/bot/       -> script(s) + workflow do GitHub Actions
+/backend/   -> API Nest, deploy independente na Vercel
+/frontend/  -> dashboard React, deploy independente na Vercel
 ```
 
 Cada pasta tem dependências e config de deploy próprias. Na Vercel,
-`backend-nest/` e `frontend-react/` são dois projetos distintos apontando
+`backend/` e `frontend/` são dois projetos distintos apontando
 pro mesmo repo (Root Directory de cada um aponta pra sua subpasta). O
-GitHub Actions roda o script dentro de `bot-python/`.
+GitHub Actions roda o script dentro de `bot/`.
 
 ## Stack
 - Bot: Python

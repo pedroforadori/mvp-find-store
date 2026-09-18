@@ -6,26 +6,26 @@
 *.key
 credentials.json
 
-# Python (bot-python)
-bot-python/__pycache__/
-bot-python/**/__pycache__/
-bot-python/*.pyc
-bot-python/.venv/
-bot-python/venv/
-bot-python/.pytest_cache/
-bot-python/.coverage
-bot-python/htmlcov/
-bot-python/*.egg-info/
+# Python (bot)
+bot/__pycache__/
+bot/**/__pycache__/
+bot/*.pyc
+bot/.venv/
+bot/venv/
+bot/.pytest_cache/
+bot/.coverage
+bot/htmlcov/
+bot/*.egg-info/
 
-# Node (backend-nest, frontend-react)
+# Node (backend, frontend)
 node_modules/
-backend-nest/dist/
-backend-nest/.vercel/
-backend-nest/coverage/
-frontend-react/dist/
-frontend-react/build/
-frontend-react/.vercel/
-frontend-react/coverage/
+backend/dist/
+backend/.vercel/
+backend/coverage/
+frontend/dist/
+frontend/build/
+frontend/.vercel/
+frontend/coverage/
 
 # Editor / OS
 .DS_Store

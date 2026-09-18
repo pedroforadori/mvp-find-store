@@ -1,0 +1,43 @@
+name: Bot de prospecção
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # 09:00 America/Sao_Paulo (UTC-3), 1x/dia
+  workflow_dispatch: {}
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar dependências
+        working-directory: bot
+        run: pip install -r requirements-dev.txt
+      - name: Rodar testes
+        working-directory: bot
+        run: pytest -q
+
+  executar:
+    needs: testes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar dependências
+        working-directory: bot
+        run: pip install -r requirements.txt
+      - name: Rodar pipeline
+        working-directory: bot
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          GOOGLE_PAGESPEED_API_KEY: ${{ secrets.GOOGLE_PAGESPEED_API_KEY }}
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          DISPAROS_POR_DIA: ${{ vars.DISPAROS_POR_DIA }}
+        run: python main.py
