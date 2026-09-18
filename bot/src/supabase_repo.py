@@ -1,5 +1,7 @@
 from typing import List, Optional
 
+import psycopg2.errors
+
 from .models import Lead, LeadParaContato
 
 _INSERT_LEAD_BASE = """
@@ -90,9 +92,17 @@ class LeadRepository:
             "prioridade": lead.prioridade,
         }
 
-        with self._conn.cursor() as cur:
-            cur.execute(query, params)
-            row = cur.fetchone()
+        try:
+            with self._conn.cursor() as cur:
+                cur.execute(query, params)
+                row = cur.fetchone()
+        except psycopg2.errors.UniqueViolation:
+            # ON CONFLICT só protege a coluna escolhida como conflict_target;
+            # a outra coluna (place_id/telefone_normalizado) também é UNIQUE
+            # no schema e pode colidir independentemente (ex: duas lojas
+            # diferentes compartilhando o telefone de uma central/recepção).
+            self._conn.rollback()
+            return None
         self._conn.commit()
 
         if row is None:

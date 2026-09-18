@@ -1,6 +1,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
+import psycopg2.errors
 import pytest
 
 from src.models import Lead, LeadParaContato, SinaisLead
@@ -71,6 +72,26 @@ def test_inserir_lead_sem_place_id_nem_telefone_levanta_erro():
 
     with pytest.raises(ValueError):
         repo.inserir_lead(_lead(place_id=None, telefone_normalizado=None))
+
+
+def test_inserir_lead_com_place_id_novo_mas_telefone_ja_existente_retorna_none():
+    """place_id não colide (ON CONFLICT não é acionado), mas telefone_normalizado
+    também é UNIQUE no schema — a UniqueViolation dessa outra coluna deve ser
+    tratada como duplicata (mesmo comportamento de ON CONFLICT DO NOTHING),
+    não deixar a exceção propagar e derrubar o pipeline."""
+    conn = MagicMock()
+    cursor = MagicMock()
+    cursor.execute.side_effect = psycopg2.errors.UniqueViolation(
+        'duplicate key value violates unique constraint "leads_telefone_normalizado_key"'
+    )
+    conn.cursor.return_value.__enter__.return_value = cursor
+    repo = LeadRepository(conn)
+
+    lead_id = repo.inserir_lead(_lead())
+
+    assert lead_id is None
+    conn.rollback.assert_called_once()
+    conn.commit.assert_not_called()
 
 
 def test_inserir_diagnostico_grava_campos_da_leads_diagnostico():
