@@ -140,6 +140,19 @@ CREATE TABLE historico_contatos (
 Faixas: 70-100 quente · 40-69 morno · 0-39 baixa prioridade. O score
 define o **template da mensagem**, não se ela é enviada.
 
+## Modo de disparo (`MODO_DISPARO`)
+- `manual` (padrão atual): o bot só descobre/qualifica/grava e esgota
+  leads; o envio é feito pelo número pessoal a partir do dashboard. O
+  Nest anexa `contato_manual` (mensagem sugerida + link `wa.me`) a cada
+  lead com 1º contato ou follow-up pendente, e
+  `POST /leads/:id/contato-manual` registra o envio
+  (`historico_contatos.canal = 'whatsapp_manual'`). Respostas são
+  marcadas à mão pelo seletor de status (sem webhook).
+- `cloud_api`: disparo automático descrito abaixo.
+- Mesmas regras de prazo/teto nos dois modos (3 dias, máx. 2 mensagens).
+- Não automatizar o número pessoal com libs não oficiais (viola os
+  termos do WhatsApp, risco de ban do número).
+
 ## Regras de disparo (WhatsApp Cloud API)
 - 1ª mensagem sempre automática para todo lead novo, assim que
   qualificado. Template varia por categoria/score.

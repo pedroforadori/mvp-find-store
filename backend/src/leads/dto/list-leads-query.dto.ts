@@ -14,4 +14,8 @@ export class ListLeadsQueryDto {
   @IsOptional()
   @IsIn(STATUSES)
   status?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  pendente_contato?: string;
 }

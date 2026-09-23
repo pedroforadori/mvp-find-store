@@ -7,7 +7,9 @@ interface LeadsFiltersProps {
 }
 
 export function LeadsFilters({ filtros, onChange }: LeadsFiltersProps) {
-  const temFiltroAtivo = Boolean(filtros.categoria || filtros.prioridade || filtros.status);
+  const temFiltroAtivo = Boolean(
+    filtros.categoria || filtros.prioridade || filtros.status || filtros.pendente_contato,
+  );
 
   return (
     <div className="flex flex-wrap items-end gap-4">
@@ -64,6 +66,15 @@ export function LeadsFilters({ filtros, onChange }: LeadsFiltersProps) {
             </option>
           ))}
         </select>
+      </label>
+
+      <label className="flex items-center gap-2 py-1 text-xs text-gray-600">
+        <input
+          type="checkbox"
+          checked={Boolean(filtros.pendente_contato)}
+          onChange={(evento) => onChange({ ...filtros, pendente_contato: evento.target.checked || undefined })}
+        />
+        Só pendentes de contato
       </label>
 
       {temFiltroAtivo && (

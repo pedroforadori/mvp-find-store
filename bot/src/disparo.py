@@ -32,6 +32,18 @@ def leads_para_esgotar(repositorio, agora: datetime) -> List[LeadParaContato]:
     ]
 
 
+def esgotar_leads(repositorio, agora: datetime = None) -> int:
+    """Marca como 'esgotado' quem recebeu as 2 mensagens e não respondeu no
+    prazo. Não envia nada, então roda tanto no modo manual quanto no cloud_api.
+    """
+    agora = agora or datetime.utcnow()
+    esgotados = 0
+    for lead in leads_para_esgotar(repositorio, agora):
+        repositorio.atualizar_status(lead.id, "esgotado")
+        esgotados += 1
+    return esgotados
+
+
 def executar_disparo(repositorio, whatsapp_client, limite_disparos_dia: int,
                       agora: datetime = None) -> dict:
     """Roda o ciclo diário de disparo: esgota quem já bateu o teto, envia
@@ -41,9 +53,7 @@ def executar_disparo(repositorio, whatsapp_client, limite_disparos_dia: int,
     agora = agora or datetime.utcnow()
     contagens = {"primeiro_contato": 0, "followup": 0, "esgotados": 0}
 
-    for lead in leads_para_esgotar(repositorio, agora):
-        repositorio.atualizar_status(lead.id, "esgotado")
-        contagens["esgotados"] += 1
+    contagens["esgotados"] = esgotar_leads(repositorio, agora)
 
     fila = [("followup", lead) for lead in leads_para_followup(repositorio, agora)]
     fila += [("primeiro_contato", lead) for lead in leads_para_primeiro_contato(repositorio)]

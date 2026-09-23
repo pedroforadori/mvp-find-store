@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 
 import { ListLeadsQueryDto } from './dto/list-leads-query.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
@@ -9,12 +9,19 @@ export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
 
   @Get()
-  listar(@Query() filtros: ListLeadsQueryDto) {
-    return this.leadsService.listar(filtros);
+  listar(@Query() query: ListLeadsQueryDto) {
+    const { pendente_contato, ...filtros } = query;
+    return this.leadsService.listar(pendente_contato === 'true' ? { ...filtros, pendente_contato: true } : filtros);
   }
 
   @Patch(':id/status')
   atualizarStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateLeadStatusDto) {
     return this.leadsService.atualizarStatus(id, dto.status);
+  }
+
+  @Post(':id/contato-manual')
+  @HttpCode(200)
+  registrarContatoManual(@Param('id', ParseIntPipe) id: number) {
+    return this.leadsService.registrarContatoManual(id);
   }
 }

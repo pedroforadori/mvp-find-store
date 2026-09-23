@@ -60,6 +60,46 @@ export class SupabaseService {
     return data;
   }
 
+  /**
+   * Registra um envio feito manualmente (número pessoal): avança status/tentativas
+   * e grava o histórico. O update só casa se status e tentativas ainda forem os
+   * lidos antes — evita contar duas vezes num clique duplo. Retorna null se o
+   * lead mudou nesse meio-tempo.
+   */
+  async registrarContatoManual(
+    lead: Lead,
+    novoStatus: Status,
+    mensagem: string,
+  ): Promise<Lead | null> {
+    const agora = new Date().toISOString();
+    const { data, error } = await this.client
+      .from('leads')
+      .update({
+        status: novoStatus,
+        tentativas: lead.tentativas + 1,
+        data_primeiro_contato: lead.data_primeiro_contato ?? agora,
+        data_ultimo_contato: agora,
+        atualizado_em: agora,
+      })
+      .eq('id', lead.id)
+      .eq('status', lead.status)
+      .eq('tentativas', lead.tentativas)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    const { error: historicoError } = await this.client.from('historico_contatos').insert({
+      lead_id: lead.id,
+      canal: 'whatsapp_manual',
+      mensagem_enviada: mensagem,
+      resultado: 'entregue',
+    });
+    if (historicoError) throw historicoError;
+
+    return data;
+  }
+
   async marcarUltimoContatoRespondido(leadId: number): Promise<void> {
     const { data, error } = await this.client
       .from('historico_contatos')

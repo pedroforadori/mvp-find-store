@@ -1,7 +1,13 @@
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
-from src.disparo import executar_disparo, leads_para_esgotar, leads_para_followup, leads_para_primeiro_contato
+from src.disparo import (
+    esgotar_leads,
+    executar_disparo,
+    leads_para_esgotar,
+    leads_para_followup,
+    leads_para_primeiro_contato,
+)
 from src.models import LeadParaContato
 
 AGORA = datetime(2026, 1, 15, 12, 0, 0)
@@ -54,6 +60,20 @@ def test_leads_para_esgotar_filtra_por_tentativas_e_prazo():
 
     repo.buscar_leads_por_status.assert_called_once_with("aguardando_followup")
     assert resultado == [esgotavel]
+
+
+def test_esgotar_leads_marca_esgotado_sem_enviar_mensagem():
+    """Usado no modo manual: só avança status, sem depender de cliente WhatsApp."""
+    esgotavel = _lead(id=1, status="aguardando_followup", tentativas=2, data_ultimo_contato=AGORA - timedelta(days=4))
+    ainda_no_prazo = _lead(id=2, status="aguardando_followup", tentativas=2, data_ultimo_contato=AGORA - timedelta(days=1))
+    repo = MagicMock()
+    repo.buscar_leads_por_status.return_value = [esgotavel, ainda_no_prazo]
+
+    esgotados = esgotar_leads(repo, AGORA)
+
+    assert esgotados == 1
+    repo.atualizar_status.assert_called_once_with(1, "esgotado")
+    repo.registrar_envio.assert_not_called()
 
 
 def _repo_vazio():

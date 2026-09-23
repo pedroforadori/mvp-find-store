@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { atualizarStatusLead, listarLeads } from '../api/leadsApi';
+import { atualizarStatusLead, listarLeads, registrarContatoManual } from '../api/leadsApi';
 import type { FiltrosLeads, Lead, Status } from '../types/lead';
 import { LeadCard } from './LeadCard';
 import { LeadsFilters } from './LeadsFilters';
@@ -33,16 +33,24 @@ export function LeadsList() {
     };
   }, [filtros]);
 
-  async function handleStatusChange(id: number, status: Status) {
+  async function atualizarLead(id: number, operacao: () => Promise<Lead>, mensagemErro: string) {
     setIdAtualizando(id);
     try {
-      const leadAtualizado = await atualizarStatusLead(id, status);
+      const leadAtualizado = await operacao();
       setLeads((atual) => atual.map((lead) => (lead.id === id ? leadAtualizado : lead)));
     } catch {
-      setErro('Não foi possível atualizar o status do lead.');
+      setErro(mensagemErro);
     } finally {
       setIdAtualizando(null);
     }
+  }
+
+  function handleStatusChange(id: number, status: Status) {
+    return atualizarLead(id, () => atualizarStatusLead(id, status), 'Não foi possível atualizar o status do lead.');
+  }
+
+  function handleRegistrarContato(id: number) {
+    return atualizarLead(id, () => registrarContatoManual(id), 'Não foi possível registrar o envio do contato.');
   }
 
   return (
@@ -66,6 +74,7 @@ export function LeadsList() {
               key={lead.id}
               lead={lead}
               onStatusChange={handleStatusChange}
+              onRegistrarContato={handleRegistrarContato}
               atualizando={idAtualizando === lead.id}
             />
           ))}

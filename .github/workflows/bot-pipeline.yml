@@ -40,4 +40,5 @@ jobs:
           WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
           WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
           DISPAROS_POR_DIA: ${{ vars.DISPAROS_POR_DIA }}
+          MODO_DISPARO: ${{ vars.MODO_DISPARO }}
         run: python main.py

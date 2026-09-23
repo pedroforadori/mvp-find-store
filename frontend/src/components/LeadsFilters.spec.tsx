@@ -15,6 +15,19 @@ describe('LeadsFilters', () => {
     expect(onChange).toHaveBeenCalledWith({ categoria: 'sem_site' });
   });
 
+  it('liga e desliga o filtro de pendentes de contato', async () => {
+    const onChange = jest.fn();
+    const usuario = userEvent.setup();
+
+    const { rerender } = render(<LeadsFilters filtros={{}} onChange={onChange} />);
+    await usuario.click(screen.getByLabelText('Só pendentes de contato'));
+    expect(onChange).toHaveBeenLastCalledWith({ pendente_contato: true });
+
+    rerender(<LeadsFilters filtros={{ pendente_contato: true }} onChange={onChange} />);
+    await usuario.click(screen.getByLabelText('Só pendentes de contato'));
+    expect(onChange).toHaveBeenLastCalledWith({ pendente_contato: undefined });
+  });
+
   it('não exibe o botão de limpar filtros quando nenhum filtro está ativo', () => {
     render(<LeadsFilters filtros={{}} onChange={jest.fn()} />);
 

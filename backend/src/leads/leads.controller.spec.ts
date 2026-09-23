@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConflictException, INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 
@@ -10,6 +10,7 @@ describe('LeadsController (integração)', () => {
   const leadsService = {
     listar: jest.fn(),
     atualizarStatus: jest.fn(),
+    registrarContatoManual: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -50,6 +51,41 @@ describe('LeadsController (integração)', () => {
 
   it('GET /leads rejeita categoria inválida', async () => {
     await request(app.getHttpServer()).get('/leads?categoria=inexistente').expect(400);
+  });
+
+  it('GET /leads converte pendente_contato=true em booleano', async () => {
+    leadsService.listar.mockResolvedValue([]);
+
+    await request(app.getHttpServer()).get('/leads?pendente_contato=true&categoria=sem_site').expect(200);
+
+    expect(leadsService.listar).toHaveBeenCalledWith({ categoria: 'sem_site', pendente_contato: true });
+  });
+
+  it('GET /leads ignora pendente_contato=false', async () => {
+    leadsService.listar.mockResolvedValue([]);
+
+    await request(app.getHttpServer()).get('/leads?pendente_contato=false').expect(200);
+
+    expect(leadsService.listar).toHaveBeenCalledWith({});
+  });
+
+  it('GET /leads rejeita pendente_contato inválido', async () => {
+    await request(app.getHttpServer()).get('/leads?pendente_contato=sim').expect(400);
+  });
+
+  it('POST /leads/:id/contato-manual registra o envio', async () => {
+    leadsService.registrarContatoManual.mockResolvedValue({ id: 1, status: 'contatado' });
+
+    const resposta = await request(app.getHttpServer()).post('/leads/1/contato-manual').expect(200);
+
+    expect(resposta.body).toEqual({ id: 1, status: 'contatado' });
+    expect(leadsService.registrarContatoManual).toHaveBeenCalledWith(1);
+  });
+
+  it('POST /leads/:id/contato-manual devolve 409 quando o lead não está pendente', async () => {
+    leadsService.registrarContatoManual.mockRejectedValue(new ConflictException('não pendente'));
+
+    await request(app.getHttpServer()).post('/leads/1/contato-manual').expect(409);
   });
 
   it('PATCH /leads/:id/status atualiza o status', async () => {

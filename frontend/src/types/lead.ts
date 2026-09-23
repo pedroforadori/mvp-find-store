@@ -20,6 +20,12 @@ export const STATUSES = [
 ] as const;
 export type Status = (typeof STATUSES)[number];
 
+export interface ContatoManual {
+  tipo: 'primeiro_contato' | 'followup';
+  mensagem: string;
+  link_whatsapp: string;
+}
+
 export interface Lead {
   id: number;
   place_id: string | null;
@@ -40,10 +46,13 @@ export interface Lead {
   resposta_sentimento: 'positiva' | 'negativa' | null;
   criado_em: string;
   atualizado_em: string;
+  /** Preenchido pelo Nest quando o lead tem 1º contato ou follow-up pendente. */
+  contato_manual: ContatoManual | null;
 }
 
 export interface FiltrosLeads {
   categoria?: Categoria;
   prioridade?: Prioridade;
   status?: Status;
+  pendente_contato?: boolean;
 }
