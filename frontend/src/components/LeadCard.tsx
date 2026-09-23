@@ -2,6 +2,7 @@ import type { Lead, Status } from '../types/lead';
 import { STATUSES } from '../types/lead';
 import { PriorityBadge } from './PriorityBadge';
 import { StatusBadge } from './StatusBadge';
+import { ehTelefoneFixo, formatarTelefone, montarLinkMaps } from '../utils/leadLinks';
 
 const ROTULOS_CATEGORIA: Record<string, string> = {
   sem_site: 'Sem site',
@@ -25,6 +26,7 @@ interface LeadCardProps {
 
 export function LeadCard({ lead, onStatusChange, onRegistrarContato, atualizando }: LeadCardProps) {
   const contato = lead.contato_manual;
+  const telefoneFixo = lead.telefone_normalizado ? ehTelefoneFixo(lead.telefone_normalizado) : false;
 
   return (
     <li className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -42,6 +44,29 @@ export function LeadCard({ lead, onStatusChange, onRegistrarContato, atualizando
           <p className="text-xs text-gray-500">
             {lead.categoria ? ROTULOS_CATEGORIA[lead.categoria] : 'Sem categoria'} · Score {lead.score} ·{' '}
             {lead.tentativas} tentativa{lead.tentativas === 1 ? '' : 's'}
+          </p>
+          <p className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+            {lead.telefone_normalizado ? (
+              <span>{formatarTelefone(lead.telefone_normalizado)}</span>
+            ) : (
+              <span>Sem telefone</span>
+            )}
+            {telefoneFixo && (
+              <span
+                className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800"
+                title="Telefone fixo raramente tem WhatsApp — confira o contato no Maps"
+              >
+                Fixo
+              </span>
+            )}
+            <a
+              href={montarLinkMaps(lead)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-blue-600 hover:underline"
+            >
+              Ver no Google Maps
+            </a>
           </p>
         </div>
 
@@ -67,6 +92,12 @@ export function LeadCard({ lead, onStatusChange, onRegistrarContato, atualizando
         <div className="flex flex-col gap-2 rounded border border-green-200 bg-green-50 p-3">
           <p className="text-xs font-medium text-green-800">{ROTULOS_TIPO_CONTATO[contato.tipo]}</p>
           <p className="text-xs text-gray-700">{contato.mensagem}</p>
+          {telefoneFixo && (
+            <p className="text-xs text-amber-800">
+              Telefone fixo: se o WhatsApp não encontrar o número, procure outro contato (celular, Instagram, site)
+              na ficha do Google Maps.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             <a
               href={contato.link_whatsapp}

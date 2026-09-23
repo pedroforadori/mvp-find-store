@@ -62,6 +62,25 @@ describe('LeadCard', () => {
     expect(screen.getByLabelText('Status de Loja da Esquina')).toBeDisabled();
   });
 
+  it('exibe telefone formatado e link para a ficha da loja no Google Maps', () => {
+    render(<LeadCard lead={lead} onStatusChange={jest.fn()} onRegistrarContato={jest.fn()} />);
+
+    expect(screen.getByText('(11) 99999-9999')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'Ver no Google Maps' });
+    expect(link.getAttribute('href')).toContain('query_place_id=place-1');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(screen.queryByText('Fixo')).not.toBeInTheDocument();
+  });
+
+  it('sinaliza telefone fixo e orienta a procurar outro contato no Maps', () => {
+    const leadFixo: Lead = { ...leadPendente, telefone_normalizado: '+551133334444' };
+
+    render(<LeadCard lead={leadFixo} onStatusChange={jest.fn()} onRegistrarContato={jest.fn()} />);
+
+    expect(screen.getByText('Fixo')).toBeInTheDocument();
+    expect(screen.getByText(/se o WhatsApp não encontrar o número/)).toBeInTheDocument();
+  });
+
   it('não exibe ações de contato quando não há contato pendente', () => {
     render(<LeadCard lead={lead} onStatusChange={jest.fn()} onRegistrarContato={jest.fn()} />);
 
