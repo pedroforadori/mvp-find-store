@@ -201,8 +201,8 @@ filtrar no dashboard, não decide se a mensagem é enviada.
   scoring do bot").
 - Nunca commitar `.env`, chaves de API, credenciais Supabase/WhatsApp —
   já cobertos pelo `.gitignore` na raiz.
-- Repositório remoto ainda não configurado — perguntar a URL antes de
-  qualquer push, nunca supor ou criar um novo.
+- Remoto: `origin` → `git@github.com:pedroforadori/mvp-find-store.git`
+  (branch `master`). Push só quando o usuário pedir.
 
 ## Fora de escopo neste MVP
 - Dashboard completo com todos os gráficos (só lista de leads + status +
