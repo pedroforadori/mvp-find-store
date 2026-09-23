@@ -5,24 +5,24 @@ import { Lead } from './leads.entity';
 export const DIAS_ENTRE_FOLLOWUP = 3;
 export const MAX_TENTATIVAS = 2;
 
-// Espelha bot/src/mensagens.py.
-const TEMPLATES_PRIMEIRO_CONTATO: Record<string, string> = {
-  sem_site:
-    'Olá! Vi que a {nome_loja} ainda não tem um site ou loja online. ' +
-    'Muita gente busca vocês no Google antes de comprar — posso te mostrar ' +
-    'como resolver isso rapidinho?',
-  sem_ecommerce:
-    'Olá! Notei que o site da {nome_loja} não tem uma loja virtual pra vender ' +
-    'online. Dá pra ativar isso sem dor de cabeça — quer entender como?',
-  site_institucional:
-    'Olá! O site da {nome_loja} é só institucional, sem vender online. ' +
-    'Se quiser transformar visitas em vendas, posso te ajudar com isso.',
-  site_desatualizado:
-    'Olá! O site da {nome_loja} parece estar desatualizado (lento ou sem ' +
-    'versão para celular). Isso afasta clientes — posso te mostrar uma solução rápida?',
-};
+// Espelha bot/src/mensagens.py. Um único texto para todas as categorias: todo
+// lead qualificado, por definição, ainda não tem loja online.
+const MENSAGEM_PRIMEIRO_CONTATO =
+  'Oi! {apresentacao}Ajudo lojas físicas a venderem também pela internet. ' +
+  'A {nome_loja} apareceu na minha busca por {nicho} em {bairro}, mas sem link ' +
+  'de loja online — é algo que vocês já pensaram em ter?';
 
-const CATEGORIA_PADRAO = 'sem_site';
+const NICHO_PADRAO = 'lojas';
+
+// Endereço do Google Places: "Rua X, 100 - Bairro, Cidade - UF, CEP, Brazil".
+// Pega o trecho entre o último " - " e ", Cidade - UF".
+const REGEX_BAIRRO = /(?:^|- )([^,-]+), [^,]+ - [A-Z]{2}(?:,|$)/;
+
+/** Bairro a partir do endereço formatado do Google; sem padrão reconhecível, usa a cidade. */
+export function extrairBairro(endereco: string | null, cidade: string): string {
+  const bairro = endereco?.match(REGEX_BAIRRO)?.[1]?.trim();
+  return bairro || cidade;
+}
 
 const MENSAGEM_FOLLOWUP =
   'Olá, {nome_loja}! Só retomando o contato — ainda faz sentido conversarmos ' +
@@ -65,12 +65,16 @@ export function contatoPendente(lead: Lead, agora: Date): TipoContato | null {
   return parseTimestampUtc(lead.data_ultimo_contato).getTime() <= limite ? 'followup' : null;
 }
 
-export function montarMensagem(lead: Lead, tipo: TipoContato): string {
-  const template =
-    tipo === 'followup'
-      ? MENSAGEM_FOLLOWUP
-      : TEMPLATES_PRIMEIRO_CONTATO[lead.categoria ?? ''] ?? TEMPLATES_PRIMEIRO_CONTATO[CATEGORIA_PADRAO];
-  return template.replace('{nome_loja}', lead.nome_loja);
+/** `nomeRemetente` vazio omite o "Sou X." em vez de deixar um buraco no texto. */
+export function montarMensagem(lead: Lead, tipo: TipoContato, nomeRemetente = ''): string {
+  if (tipo === 'followup') {
+    return MENSAGEM_FOLLOWUP.replace('{nome_loja}', lead.nome_loja);
+  }
+  const nome = nomeRemetente.trim();
+  return MENSAGEM_PRIMEIRO_CONTATO.replace('{apresentacao}', nome ? `Sou ${nome}. ` : '')
+    .replace('{nome_loja}', lead.nome_loja)
+    .replace('{nicho}', lead.nicho?.trim() || NICHO_PADRAO)
+    .replace('{bairro}', extrairBairro(lead.endereco, lead.cidade));
 }
 
 export function montarLinkWhatsapp(telefoneNormalizado: string, mensagem: string): string {
@@ -78,12 +82,12 @@ export function montarLinkWhatsapp(telefoneNormalizado: string, mensagem: string
   return `https://wa.me/${digitos}?text=${encodeURIComponent(mensagem)}`;
 }
 
-export function anexarContatoManual(lead: Lead, agora: Date): LeadComContato {
+export function anexarContatoManual(lead: Lead, agora: Date, nomeRemetente = ''): LeadComContato {
   const tipo = contatoPendente(lead, agora);
   if (!tipo || !lead.telefone_normalizado) {
     return { ...lead, contato_manual: null };
   }
-  const mensagem = montarMensagem(lead, tipo);
+  const mensagem = montarMensagem(lead, tipo, nomeRemetente);
   return {
     ...lead,
     contato_manual: {

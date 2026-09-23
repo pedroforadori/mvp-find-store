@@ -68,3 +68,6 @@ class LeadParaContato:
     status: str
     tentativas: int
     data_ultimo_contato: Optional[datetime]
+    nicho: Optional[str] = None
+    endereco: Optional[str] = None
+    cidade: str = "São Paulo"

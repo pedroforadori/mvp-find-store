@@ -19,6 +19,9 @@ export interface FiltrosLeads {
 
 @Injectable()
 export class LeadsService {
+  /** Nome que assina a 1ª mensagem ("Oi! Sou X."). */
+  private readonly nomeRemetente = process.env.NOME_REMETENTE ?? '';
+
   constructor(private readonly supabase: SupabaseService) {}
 
   async listar(filtros: FiltrosLeads, agora: Date = new Date()): Promise<LeadComContato[]> {
@@ -27,7 +30,7 @@ export class LeadsService {
     if (pendente_contato) {
       leads = leads.filter((lead) => contatoPendente(lead, agora) !== null);
     }
-    return leads.map((lead) => anexarContatoManual(lead, agora));
+    return leads.map((lead) => anexarContatoManual(lead, agora, this.nomeRemetente));
   }
 
   async atualizarStatus(id: number, status: Status): Promise<LeadComContato> {
@@ -36,7 +39,7 @@ export class LeadsService {
       throw new NotFoundException(`Lead ${id} não encontrado`);
     }
     const atualizado = await this.supabase.atualizarStatusLead(id, status);
-    return anexarContatoManual(atualizado, new Date());
+    return anexarContatoManual(atualizado, new Date(), this.nomeRemetente);
   }
 
   /**
@@ -56,10 +59,11 @@ export class LeadsService {
     }
 
     const novoStatus: Status = tipo === 'primeiro_contato' ? 'contatado' : 'aguardando_followup';
-    const atualizado = await this.supabase.registrarContatoManual(lead, novoStatus, montarMensagem(lead, tipo));
+    const mensagem = montarMensagem(lead, tipo, this.nomeRemetente);
+    const atualizado = await this.supabase.registrarContatoManual(lead, novoStatus, mensagem);
     if (!atualizado) {
       throw new ConflictException(`Lead ${id} foi alterado por outra operação; recarregue a lista`);
     }
-    return anexarContatoManual(atualizado, new Date());
+    return anexarContatoManual(atualizado, new Date(), this.nomeRemetente);
   }
 }

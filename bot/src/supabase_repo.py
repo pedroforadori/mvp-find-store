@@ -18,7 +18,8 @@ _INSERT_LEAD_BASE = """
 """
 
 _SELECT_LEADS_POR_STATUS = """
-    SELECT id, telefone_normalizado, nome_loja, categoria, status, tentativas, data_ultimo_contato
+    SELECT id, telefone_normalizado, nome_loja, categoria, status, tentativas, data_ultimo_contato,
+           nicho, endereco, cidade
     FROM leads
     WHERE status = %(status)s
 """
@@ -185,18 +186,7 @@ class LeadRepository:
         with self._conn.cursor() as cur:
             cur.execute(_SELECT_LEADS_POR_STATUS, {"status": status})
             rows = cur.fetchall()
-        return [
-            LeadParaContato(
-                id=row[0],
-                telefone_normalizado=row[1],
-                nome_loja=row[2],
-                categoria=row[3],
-                status=row[4],
-                tentativas=row[5],
-                data_ultimo_contato=row[6],
-            )
-            for row in rows
-        ]
+        return [LeadParaContato(*row) for row in rows]
 
     def atualizar_status(self, lead_id: int, status: str) -> None:
         with self._conn.cursor() as cur:

@@ -29,7 +29,9 @@ def main() -> None:
 
         if config.modo_disparo == "cloud_api":
             whatsapp_client = WhatsAppClient(config.whatsapp_token, config.whatsapp_phone_number_id)
-            contagens_disparo = executar_disparo(repositorio, whatsapp_client, config.disparos_por_dia)
+            contagens_disparo = executar_disparo(
+                repositorio, whatsapp_client, config.disparos_por_dia, nome_remetente=config.nome_remetente
+            )
             logger.info("Disparo concluído: %s", contagens_disparo)
         else:
             # Modo manual: o envio é feito pelo dashboard; aqui só esgotamos

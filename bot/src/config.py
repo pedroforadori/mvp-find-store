@@ -21,6 +21,7 @@ class Config:
     cidade: str = "São Paulo"
     disparos_por_dia: int = 10
     modo_disparo: str = "manual"
+    nome_remetente: str = ""
 
 
 def carregar_config() -> Config:
@@ -38,4 +39,5 @@ def carregar_config() -> Config:
         whatsapp_phone_number_id=os.environ.get("WHATSAPP_PHONE_NUMBER_ID", ""),
         disparos_por_dia=int(os.environ.get("DISPAROS_POR_DIA") or "10"),
         modo_disparo=modo_disparo,
+        nome_remetente=os.environ.get("NOME_REMETENTE", ""),
     )

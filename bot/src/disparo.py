@@ -45,7 +45,7 @@ def esgotar_leads(repositorio, agora: datetime = None) -> int:
 
 
 def executar_disparo(repositorio, whatsapp_client, limite_disparos_dia: int,
-                      agora: datetime = None) -> dict:
+                      agora: datetime = None, nome_remetente: str = "") -> dict:
     """Roda o ciclo diário de disparo: esgota quem já bateu o teto, envia
     follow-up para quem está no prazo e faz o 1º contato de leads novos,
     respeitando o limite diário do plano de warm-up.
@@ -65,7 +65,10 @@ def executar_disparo(repositorio, whatsapp_client, limite_disparos_dia: int,
         if not lead.telefone_normalizado:
             continue
 
-        mensagem = montar_mensagem_followup(lead) if tipo == "followup" else montar_mensagem_primeiro_contato(lead)
+        if tipo == "followup":
+            mensagem = montar_mensagem_followup(lead)
+        else:
+            mensagem = montar_mensagem_primeiro_contato(lead, nome_remetente)
         sucesso = whatsapp_client.enviar_mensagem_interativa(lead.telefone_normalizado, mensagem)
         repositorio.registrar_envio(lead, mensagem, tipo, sucesso)
 

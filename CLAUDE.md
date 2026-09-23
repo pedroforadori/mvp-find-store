@@ -145,9 +145,20 @@ A categoria define a faixa; os demais sinais só ordenam dentro dela.
 
 Score limitado a 100. Faixas: 70-100 quente · 40-69 morno · 0-39 baixa.
 Website do Google Places que é Instagram/Linktree/WhatsApp/Facebook conta
-como "sem site" (e é a fonte do handle do Instagram). O template da
-mensagem é escolhido pela **categoria**; o score serve para ordenar e
-filtrar no dashboard, não decide se a mensagem é enviada.
+como "sem site" (e é a fonte do handle do Instagram). O score serve para
+ordenar e filtrar no dashboard, não decide se a mensagem é enviada.
+
+### Texto da 1ª mensagem
+Único para todas as categorias (todo lead qualificado ainda não tem loja
+online), com `{remetente}` = env `NOME_REMETENTE`, `{nicho}` = `leads.nicho`
+e `{bairro}` extraído de `leads.endereco` (fallback: cidade):
+
+> Oi! Sou {remetente}. Ajudo lojas físicas a venderem também pela
+> internet. A {nome_loja} apareceu na minha busca por {nicho} em {bairro},
+> mas sem link de loja online — é algo que vocês já pensaram em ter?
+
+Mantido igual em `bot/src/mensagens.py` e
+`backend/src/leads/contato-manual.ts` — alterar os dois juntos.
 
 ## Modo de disparo (`MODO_DISPARO`)
 - `manual` (padrão atual): o bot só descobre/qualifica/grava e esgota
@@ -164,7 +175,7 @@ filtrar no dashboard, não decide se a mensagem é enviada.
 
 ## Regras de disparo (WhatsApp Cloud API)
 - 1ª mensagem sempre automática para todo lead novo, assim que
-  qualificado. Template varia por categoria/score.
+  qualificado (texto acima).
 - Botões interativos (não texto livre):
   - "Quero saber mais" → `status = 'destaque'`
   - "Fale comigo depois" → `status = 'destaque'`

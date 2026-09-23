@@ -1,6 +1,7 @@
 import {
   anexarContatoManual,
   contatoPendente,
+  extrairBairro,
   montarLinkWhatsapp,
   montarMensagem,
   tipoContatoPermitido,
@@ -76,15 +77,55 @@ describe('contatoPendente', () => {
   });
 });
 
+describe('extrairBairro', () => {
+  it.each([
+    ['R. Teodoro Sampaio, 1806 - Pinheiros, São Paulo - SP, 05405-150, Brazil', 'Pinheiros'],
+    ['Av. Paulista, 486 - Lj A - Bela Vista, São Paulo - SP, 01311-200, Brazil', 'Bela Vista'],
+    [
+      'Shopping Vista 14 - R. Santa Ifigênia, 190 - Santa Ifigênia, São Paulo - SP, 01207-000, Brazil',
+      'Santa Ifigênia',
+    ],
+    ['R. São Paulo, 1969 - Cerâmica, São Caetano do Sul - SP, 09530-210, Brazil', 'Cerâmica'],
+  ])('%s → %s', (endereco, bairro) => {
+    expect(extrairBairro(endereco, 'São Paulo')).toBe(bairro);
+  });
+
+  it('usa a cidade quando não há endereço ou o formato não é reconhecido', () => {
+    expect(extrairBairro(null, 'São Paulo')).toBe('São Paulo');
+    expect(extrairBairro('Rua sem bairro 123', 'São Paulo')).toBe('São Paulo');
+  });
+});
+
 describe('montarMensagem', () => {
-  it('usa o template da categoria no 1º contato', () => {
-    expect(montarMensagem(lead({ categoria: 'sem_ecommerce' }), 'primeiro_contato')).toContain(
-      'não tem uma loja virtual',
+  const lojaEmPinheiros = lead({
+    nome_loja: 'Sasha Calçados',
+    nicho: 'loja de calçados',
+    endereco: 'R. Teodoro Sampaio, 1806 - Pinheiros, São Paulo - SP, 05405-150, Brazil',
+  });
+
+  it('monta o 1º contato com remetente, loja, nicho e bairro', () => {
+    expect(montarMensagem(lojaEmPinheiros, 'primeiro_contato', 'Pedro')).toBe(
+      'Oi! Sou Pedro. Ajudo lojas físicas a venderem também pela internet. ' +
+        'A Sasha Calçados apareceu na minha busca por loja de calçados em Pinheiros, ' +
+        'mas sem link de loja online — é algo que vocês já pensaram em ter?',
     );
   });
 
-  it('cai no template padrão quando a categoria é desconhecida', () => {
-    expect(montarMensagem(lead({ categoria: null }), 'primeiro_contato')).toContain('ainda não tem um site');
+  it('usa o mesmo texto para todas as categorias', () => {
+    const institucional = { ...lojaEmPinheiros, categoria: 'site_institucional' as const };
+    expect(montarMensagem(institucional, 'primeiro_contato', 'Pedro')).toBe(
+      montarMensagem(lojaEmPinheiros, 'primeiro_contato', 'Pedro'),
+    );
+  });
+
+  it('omite a apresentação quando não há nome de remetente', () => {
+    expect(montarMensagem(lojaEmPinheiros, 'primeiro_contato', '  ')).toMatch(/^Oi! Ajudo lojas físicas/);
+  });
+
+  it('usa "lojas" e a cidade quando faltam nicho e endereço', () => {
+    expect(montarMensagem(lead({ nicho: null, endereco: null }), 'primeiro_contato')).toContain(
+      'na minha busca por lojas em São Paulo',
+    );
   });
 
   it('usa a mensagem de follow-up com o nome da loja', () => {
