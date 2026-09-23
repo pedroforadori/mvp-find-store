@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import requests
 
-from src.site_diagnostico import diagnosticar_site
+from src.site_diagnostico import diagnosticar_site, eh_site_proprio, extrair_instagram_handle
 
 HTML_COMPLETO_COM_CHECKOUT = """
 <html><head>
@@ -78,3 +78,49 @@ def test_diagnostico_detecta_tecnologia_conhecida():
     resultado = diagnosticar_site("https://exemplo.com", session=session)
 
     assert resultado.tecnologia_detectada == "Shopify"
+
+
+def test_plataforma_de_ecommerce_conta_como_checkout_sem_palavras_de_carrinho():
+    html = "<html><head><title>Loja</title></head><body><script src='https://cdn.shopify.com/x.js'></script></body></html>"
+    session = MagicMock()
+    session.get.return_value = _resposta(html)
+
+    resultado = diagnosticar_site("https://exemplo.com", session=session)
+
+    assert resultado.tem_checkout is True
+
+
+def test_wordpress_sem_woocommerce_nao_conta_como_checkout():
+    html = "<html><head><title>Empresa</title></head><body><link href='/wp-content/style.css'></body></html>"
+    session = MagicMock()
+    session.get.return_value = _resposta(html)
+
+    resultado = diagnosticar_site("https://exemplo.com", session=session)
+
+    assert resultado.tecnologia_detectada == "WordPress"
+    assert resultado.tem_checkout is False
+
+
+def test_site_offline_nao_afirma_ausencia_de_botao_whatsapp():
+    session = MagicMock()
+    session.get.side_effect = requests.RequestException("timeout")
+
+    resultado = diagnosticar_site("https://site-fora-do-ar.com", session=session)
+
+    assert resultado.tem_botao_whatsapp is None
+
+
+def test_eh_site_proprio():
+    assert eh_site_proprio("https://lojadaana.com.br") is True
+    assert eh_site_proprio("https://www.instagram.com/lojadaana/") is False
+    assert eh_site_proprio("https://linktr.ee/lojadaana") is False
+    assert eh_site_proprio("https://wa.me/5511987654321") is False
+    assert eh_site_proprio("https://facebook.com/lojadaana") is False
+    assert eh_site_proprio(None) is False
+    assert eh_site_proprio("") is False
+
+
+def test_extrair_instagram_handle_de_url():
+    assert extrair_instagram_handle("https://www.instagram.com/lojadaana/") == "lojadaana"
+    assert extrair_instagram_handle("https://linktr.ee/lojadaana") is None
+    assert extrair_instagram_handle(None) is None

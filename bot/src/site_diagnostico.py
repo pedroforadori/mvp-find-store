@@ -13,10 +13,24 @@ TECNOLOGIAS_ECOMMERCE = {
     "vteximg.com.br": "VTEX",
     "vtexassets.com": "VTEX",
     "cdn.nuvemshop.com.br": "Nuvemshop/Tiendanube",
+    "cdn.awsli.com.br": "Loja Integrada",
+    "tcdn.com.br": "Tray",
     "woocommerce": "WooCommerce",
     "wp-content": "WordPress",
     "cdn.shoppub.io": "Shoppub",
 }
+
+# Tecnologias que por si só indicam loja online — o site é descartado mesmo
+# que a home não tenha as palavras de checkout. WordPress puro não entra.
+PLATAFORMAS_ECOMMERCE = {
+    "Shopify", "VTEX", "Nuvemshop/Tiendanube", "Loja Integrada", "Tray", "WooCommerce", "Shoppub",
+}
+
+# Links que o Google Places aceita como "website", mas não são site próprio.
+DOMINIOS_NAO_SITE = [
+    "instagram.com", "facebook.com", "fb.com", "linktr.ee", "wa.me",
+    "api.whatsapp.com", "whatsapp.com", "tiktok.com",
+]
 
 PALAVRAS_CHECKOUT = [
     "adicionar ao carrinho",
@@ -40,7 +54,7 @@ class DiagnosticoSite:
     tem_meta_tags: Optional[bool]
     tecnologia_detectada: Optional[str]
     tecnologia_desatualizada: bool
-    tem_botao_whatsapp: bool
+    tem_botao_whatsapp: Optional[bool]
     tem_checkout: bool
     tem_catalogo_produtos: bool
     site_quebrado: bool
@@ -55,6 +69,18 @@ def _extrair_instagram_handle(html: str) -> Optional[str]:
     if not handle or handle.lower() in _SEGMENTOS_IGNORADOS:
         return None
     return handle
+
+
+def eh_site_proprio(url: Optional[str]) -> bool:
+    """Falso para URL vazia ou link de rede social/agregador (Instagram, Linktree...)."""
+    if not url:
+        return False
+    url_lower = url.strip().lower()
+    return not any(dominio in url_lower for dominio in DOMINIOS_NAO_SITE)
+
+
+def extrair_instagram_handle(texto: Optional[str]) -> Optional[str]:
+    return _extrair_instagram_handle(texto) if texto else None
 
 
 def _detectar_tecnologia(html_lower: str) -> Optional[str]:
@@ -81,7 +107,7 @@ def diagnosticar_site(url: str, session: Optional[requests.Session] = None) -> D
             tem_meta_tags=None,
             tecnologia_detectada=None,
             tecnologia_desatualizada=False,
-            tem_botao_whatsapp=False,
+            tem_botao_whatsapp=None,
             tem_checkout=False,
             tem_catalogo_produtos=False,
             site_quebrado=True,
@@ -107,7 +133,10 @@ def diagnosticar_site(url: str, session: Optional[requests.Session] = None) -> D
         tecnologia_detectada=tecnologia_detectada,
         tecnologia_desatualizada=not tem_viewport,
         tem_botao_whatsapp=("wa.me/" in html_lower or "api.whatsapp.com/send" in html_lower),
-        tem_checkout=any(p in html_lower for p in PALAVRAS_CHECKOUT),
+        tem_checkout=(
+            tecnologia_detectada in PLATAFORMAS_ECOMMERCE
+            or any(p in html_lower for p in PALAVRAS_CHECKOUT)
+        ),
         tem_catalogo_produtos=any(p in html_lower for p in PALAVRAS_CATALOGO),
         site_quebrado=False,
         instagram_handle=_extrair_instagram_handle(html),

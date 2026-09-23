@@ -115,7 +115,7 @@ CREATE TABLE historico_contatos (
 1. **Descoberta**: lojas em SP via Google Places API, paginado por
    categoria ampla, sem restringir nicho.
 2. **Qualificação**:
-   - Sem site + sem Instagram com link de venda → `sem_site`
+   - Sem site (com ou sem Instagram vendendo) → `sem_site`
    - Tem site sem checkout/carrinho → `sem_ecommerce` ou `site_institucional`
    - Tem checkout funcional → descarta (não é lead)
    - Verificar SSL, PageSpeed mobile, meta tags, tecnologia (fingerprint
@@ -126,19 +126,28 @@ CREATE TABLE historico_contatos (
 5. **Disparo**: ver regras abaixo.
 
 ### Tabela de scoring
-| Critério | Peso |
-|---|---|
-| Não tem site nem Instagram com link de venda | +30 |
-| Site sem SSL | +20 |
-| PageSpeed mobile < 50 | +20 |
-| Sem meta title/description | +10 |
-| Tecnologia desatualizada | +10 |
-| Sem botão de WhatsApp | +10 |
-| Instagram ativo mas site quebrado/inexistente | +10 |
-| Site com checkout funcional | -100 (descarta) |
+Lead quente = loja **sem site ou sem loja online** (é o público do serviço).
+A categoria define a faixa; os demais sinais só ordenam dentro dela.
 
-Faixas: 70-100 quente · 40-69 morno · 0-39 baixa prioridade. O score
-define o **template da mensagem**, não se ela é enviada.
+| Categoria (base) | Pontos base | Faixa |
+|---|---|---|
+| `sem_site` | 70 | quente |
+| `sem_ecommerce` (site com produtos, sem checkout) | 70 | quente |
+| `site_institucional` | 40 | morno |
+| `site_desatualizado` (sem viewport ou fora do ar) | 40 | morno |
+| Checkout funcional ou plataforma de e-commerce (Shopify, VTEX, Nuvemshop, Loja Integrada, Tray, WooCommerce, Shoppub) | 0 | descarta |
+
+| Bônus | Peso |
+|---|---|
+| Sem site + Instagram com link de venda | +20 |
+| Sem site + Instagram ativo | +10 |
+| Com site: sem SSL / PageSpeed mobile < 50 / sem meta title+description / tecnologia desatualizada / sem botão de WhatsApp | +5 cada |
+
+Score limitado a 100. Faixas: 70-100 quente · 40-69 morno · 0-39 baixa.
+Website do Google Places que é Instagram/Linktree/WhatsApp/Facebook conta
+como "sem site" (e é a fonte do handle do Instagram). O template da
+mensagem é escolhido pela **categoria**; o score serve para ordenar e
+filtrar no dashboard, não decide se a mensagem é enviada.
 
 ## Modo de disparo (`MODO_DISPARO`)
 - `manual` (padrão atual): o bot só descobre/qualifica/grava e esgota

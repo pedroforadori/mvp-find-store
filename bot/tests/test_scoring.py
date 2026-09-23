@@ -1,6 +1,7 @@
 from src.models import SinaisLead
 from src.scoring import calcular_score, definir_prioridade
 
+# Site institucional "saudável": nenhum problema técnico encontrado.
 SINAIS_BASE = dict(
     tem_site=True,
     tem_instagram_link_venda=False,
@@ -11,8 +12,12 @@ SINAIS_BASE = dict(
     tem_botao_whatsapp=True,
     instagram_ativo_30d=False,
     tem_checkout=False,
-    tem_catalogo_produtos=True,
+    tem_catalogo_produtos=False,
     site_quebrado=False,
+)
+
+SEM_SITE = dict(
+    tem_site=False, tem_ssl=None, pagespeed_mobile=None, tem_meta_tags=None, tem_botao_whatsapp=None,
 )
 
 
@@ -20,90 +25,108 @@ def sinais(**overrides):
     return SinaisLead(**{**SINAIS_BASE, **overrides})
 
 
-def test_nenhum_criterio_score_zero():
-    assert calcular_score(sinais()) == 0
-
+# --- Base por categoria ---
 
 def test_checkout_funcional_zera_score_mesmo_com_outros_criterios():
     assert calcular_score(sinais(tem_checkout=True, tem_ssl=False, tem_meta_tags=False)) == 0
 
 
-def test_sem_site_e_sem_instagram_com_link_de_venda():
-    assert calcular_score(sinais(tem_site=False, tem_instagram_link_venda=False)) == 30
+def test_sem_site_e_quente():
+    score = calcular_score(sinais(**SEM_SITE))
+    assert score == 70
+    assert definir_prioridade(score) == "quente"
 
 
-def test_sem_site_mas_com_instagram_com_link_de_venda_nao_pontua_esse_criterio():
-    assert calcular_score(sinais(tem_site=False, tem_instagram_link_venda=True)) == 0
+def test_site_com_catalogo_sem_checkout_e_quente():
+    score = calcular_score(sinais(tem_catalogo_produtos=True))
+    assert score == 70
+    assert definir_prioridade(score) == "quente"
 
 
-def test_tem_site_nao_pontua_criterio_sem_site():
-    assert calcular_score(sinais(tem_site=True, tem_instagram_link_venda=False)) == 0
+def test_site_institucional_e_morno():
+    score = calcular_score(sinais())
+    assert score == 40
+    assert definir_prioridade(score) == "morno"
 
+
+def test_site_desatualizado_e_morno():
+    score = calcular_score(sinais(site_quebrado=True, tem_ssl=None, tem_meta_tags=None, tem_botao_whatsapp=None))
+    assert score == 40
+    assert definir_prioridade(score) == "morno"
+
+
+# --- Bônus para quem não tem site (Instagram) ---
+
+def test_sem_site_com_instagram_com_link_de_venda():
+    assert calcular_score(sinais(**SEM_SITE, tem_instagram_link_venda=True)) == 90
+
+
+def test_sem_site_com_instagram_ativo():
+    assert calcular_score(sinais(**SEM_SITE, instagram_ativo_30d=True)) == 80
+
+
+def test_sem_site_vendendo_no_instagram_ativo_atinge_maximo():
+    assert calcular_score(sinais(**SEM_SITE, tem_instagram_link_venda=True, instagram_ativo_30d=True)) == 100
+
+
+def test_instagram_nao_pontua_para_quem_tem_site():
+    assert calcular_score(sinais(tem_instagram_link_venda=True, instagram_ativo_30d=True)) == 40
+
+
+# --- Bônus de problemas no site ---
 
 def test_site_sem_ssl():
-    assert calcular_score(sinais(tem_ssl=False)) == 20
-
-
-def test_sem_ssl_nao_conta_se_nao_tem_site():
-    assert calcular_score(sinais(tem_site=False, tem_ssl=False, tem_instagram_link_venda=True)) == 0
+    assert calcular_score(sinais(tem_ssl=False)) == 45
 
 
 def test_pagespeed_mobile_abaixo_de_50():
-    assert calcular_score(sinais(pagespeed_mobile=49)) == 20
+    assert calcular_score(sinais(pagespeed_mobile=49)) == 45
 
 
 def test_pagespeed_mobile_exatamente_50_nao_pontua():
-    assert calcular_score(sinais(pagespeed_mobile=50)) == 0
+    assert calcular_score(sinais(pagespeed_mobile=50)) == 40
 
 
 def test_pagespeed_mobile_none_nao_pontua():
-    assert calcular_score(sinais(pagespeed_mobile=None)) == 0
+    assert calcular_score(sinais(pagespeed_mobile=None)) == 40
 
 
 def test_sem_meta_tags():
-    assert calcular_score(sinais(tem_meta_tags=False)) == 10
-
-
-def test_sem_meta_tags_nao_conta_se_nao_tem_site():
-    assert calcular_score(sinais(tem_site=False, tem_meta_tags=False, tem_instagram_link_venda=True)) == 0
+    assert calcular_score(sinais(tem_meta_tags=False)) == 45
 
 
 def test_tecnologia_desatualizada():
-    assert calcular_score(sinais(tecnologia_desatualizada=True)) == 10
+    # Tecnologia desatualizada também muda a categoria para site_desatualizado (base 40).
+    assert calcular_score(sinais(tecnologia_desatualizada=True)) == 45
 
 
 def test_sem_botao_whatsapp():
-    assert calcular_score(sinais(tem_botao_whatsapp=False)) == 10
+    assert calcular_score(sinais(tem_botao_whatsapp=False)) == 45
 
 
 def test_botao_whatsapp_desconhecido_nao_pontua():
-    assert calcular_score(sinais(tem_botao_whatsapp=None)) == 0
+    assert calcular_score(sinais(tem_botao_whatsapp=None)) == 40
 
 
-def test_instagram_ativo_mas_sem_site():
-    assert calcular_score(sinais(tem_site=False, instagram_ativo_30d=True, tem_instagram_link_venda=True)) == 10
-
-
-def test_instagram_ativo_com_site_quebrado():
-    assert calcular_score(sinais(instagram_ativo_30d=True, site_quebrado=True)) == 10
-
-
-def test_instagram_ativo_com_site_saudavel_nao_pontua():
-    assert calcular_score(sinais(instagram_ativo_30d=True, site_quebrado=False)) == 0
-
-
-def test_combinacao_de_varios_criterios():
+def test_site_institucional_com_todos_os_problemas_continua_morno():
     resultado = sinais(
-        tem_site=True,
         tem_ssl=False,
         pagespeed_mobile=30,
         tem_meta_tags=False,
         tecnologia_desatualizada=True,
         tem_botao_whatsapp=False,
     )
-    # 20 (ssl) + 20 (pagespeed) + 10 (meta) + 10 (tecnologia) + 10 (whatsapp) = 70
-    assert calcular_score(resultado) == 70
+    score = calcular_score(resultado)
+    assert score == 65
+    assert definir_prioridade(score) == "morno"
 
+
+def test_sem_ecommerce_com_problemas_no_site_sobe_dentro_da_faixa_quente():
+    resultado = sinais(tem_catalogo_produtos=True, tem_ssl=False, pagespeed_mobile=30)
+    assert calcular_score(resultado) == 80
+
+
+# --- Faixas ---
 
 def test_prioridade_quente():
     assert definir_prioridade(70) == "quente"

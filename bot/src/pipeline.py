@@ -8,7 +8,7 @@ from .phone import normalizar_telefone
 from .places_client import CATEGORIAS_BUSCA_PADRAO, GooglePlacesClient
 from .qualification import CATEGORIA_DESCARTADO, qualificar_categoria
 from .scoring import calcular_score, definir_prioridade
-from .site_diagnostico import diagnosticar_site
+from .site_diagnostico import diagnosticar_site, eh_site_proprio, extrair_instagram_handle
 from .supabase_repo import LeadRepository
 
 logger = logging.getLogger(__name__)
@@ -18,19 +18,24 @@ def montar_lead(place_details: dict, nicho: str, cidade: str,
                  pagespeed_client: PageSpeedClient) -> Lead:
     """Roda o diagnóstico completo de um resultado do Places e monta o Lead."""
     nome_loja = place_details.get("name", "")
-    site_url = place_details.get("website") or None
+    website = place_details.get("website") or None
     telefone_normalizado = normalizar_telefone(place_details.get("formatted_phone_number"))
     endereco = place_details.get("formatted_address")
     place_id = place_details.get("place_id")
 
+    # Lojas sem site costumam cadastrar o Instagram/Linktree como "website" no
+    # Google: isso não é site próprio, mas é a fonte do handle do Instagram.
+    site_url = website if eh_site_proprio(website) else None
+
     if site_url:
         diagnostico_site = diagnosticar_site(site_url)
         pagespeed_mobile = pagespeed_client.obter_score_mobile(site_url)
+        instagram_handle = diagnostico_site.instagram_handle
     else:
         diagnostico_site = None
         pagespeed_mobile = None
+        instagram_handle = extrair_instagram_handle(website)
 
-    instagram_handle = diagnostico_site.instagram_handle if diagnostico_site else None
     diagnostico_ig = diagnosticar_instagram(instagram_handle)
 
     sinais = SinaisLead(
@@ -41,7 +46,7 @@ def montar_lead(place_details: dict, nicho: str, cidade: str,
         tem_meta_tags=diagnostico_site.tem_meta_tags if diagnostico_site else None,
         tecnologia_detectada=diagnostico_site.tecnologia_detectada if diagnostico_site else None,
         tecnologia_desatualizada=diagnostico_site.tecnologia_desatualizada if diagnostico_site else False,
-        tem_botao_whatsapp=diagnostico_site.tem_botao_whatsapp if diagnostico_site else False,
+        tem_botao_whatsapp=diagnostico_site.tem_botao_whatsapp if diagnostico_site else None,
         instagram_ativo_30d=diagnostico_ig.ativo_30d,
         tem_checkout=diagnostico_site.tem_checkout if diagnostico_site else False,
         tem_catalogo_produtos=diagnostico_site.tem_catalogo_produtos if diagnostico_site else False,

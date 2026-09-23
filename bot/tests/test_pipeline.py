@@ -96,6 +96,33 @@ def test_lead_duplicado_nao_grava_diagnostico(mock_diag_site, mock_diag_ig):
 
 @patch("src.pipeline.diagnosticar_instagram")
 @patch("src.pipeline.diagnosticar_site")
+def test_instagram_como_website_e_tratado_como_sem_site(mock_diag_site, mock_diag_ig):
+    mock_diag_ig.return_value = DiagnosticoInstagram(tem_link_venda=True, ativo_30d=True)
+
+    places_client = _places_client({"papelaria": [{"place_id": "p4", "name": "Loja 4"}]})
+    places_client.obter_detalhes.return_value = {
+        "place_id": "p4", "name": "Loja 4",
+        "website": "https://www.instagram.com/loja4/", "formatted_phone_number": None,
+    }
+    pagespeed_client = MagicMock()
+    repositorio = MagicMock()
+    repositorio.inserir_lead.return_value = 4
+
+    executar_pipeline(places_client, pagespeed_client, repositorio, "São Paulo", categorias=["papelaria"])
+
+    mock_diag_site.assert_not_called()
+    pagespeed_client.obter_score_mobile.assert_not_called()
+    mock_diag_ig.assert_called_once_with("loja4")
+    lead = repositorio.inserir_lead.call_args[0][0]
+    assert lead.categoria == "sem_site"
+    assert lead.site_url is None
+    assert lead.instagram_handle == "loja4"
+    assert lead.prioridade == "quente"
+    assert lead.score == 100
+
+
+@patch("src.pipeline.diagnosticar_instagram")
+@patch("src.pipeline.diagnosticar_site")
 def test_resultado_sem_place_id_e_ignorado(mock_diag_site, mock_diag_ig):
     places_client = _places_client({"papelaria": [{"name": "Sem place id"}]})
     pagespeed_client = MagicMock()
