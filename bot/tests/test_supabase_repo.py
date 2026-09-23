@@ -206,3 +206,30 @@ def test_registrar_envio_com_falha_nao_atualiza_status_do_lead():
     assert not any("UPDATE leads" in q for q in queries)
     params_historico = cursor.execute.call_args_list[0][0][1]
     assert params_historico["resultado"] == "falhou"
+
+
+def test_buscar_leads_para_recalculo_mapeia_join_com_diagnostico():
+    linha = (1, "place-1", "+5511987654321", "Loja", "papelaria", "São Paulo", None,
+             "https://loja.com.br", None, "sem_site", 30, "baixa", "novo", 45)
+    conn, _ = _mock_conn_fetchall([linha])
+    repo = LeadRepository(conn)
+
+    [registro] = repo.buscar_leads_para_recalculo()
+
+    assert registro.id == 1
+    assert registro.site_url == "https://loja.com.br"
+    assert registro.pagespeed_mobile == 45
+
+
+def test_atualizar_recalculo_grava_lead_e_upsert_do_diagnostico_na_mesma_transacao():
+    conn, cursor = _mock_conn_fetchall([])
+    repo = LeadRepository(conn)
+
+    repo.atualizar_recalculo(5, _lead(categoria="descartado", score=0), descartar_se_novo=True)
+
+    [(update_sql, update_params), (diag_sql, diag_params)] = [c[0] for c in cursor.execute.call_args_list]
+    assert "UPDATE leads" in update_sql and "status = 'novo' THEN 'descartado'" in update_sql
+    assert update_params["id"] == 5 and update_params["descartar_se_novo"] is True
+    assert "ON CONFLICT (lead_id) DO UPDATE" in diag_sql
+    assert diag_params["lead_id"] == 5
+    conn.commit.assert_called_once()

@@ -22,7 +22,13 @@ export class SupabaseService {
   }
 
   async listarLeads(filtros: FiltrosLeads): Promise<Lead[]> {
-    let query = this.client.from('leads').select('*').order('criado_em', { ascending: false });
+    // Prioridade é derivada do score, então ordenar por score já põe os
+    // quentes primeiro na fila de contato; empate desempata pelo mais novo.
+    let query = this.client
+      .from('leads')
+      .select('*')
+      .order('score', { ascending: false })
+      .order('criado_em', { ascending: false });
 
     if (filtros.categoria) query = query.eq('categoria', filtros.categoria);
     if (filtros.prioridade) query = query.eq('prioridade', filtros.prioridade);

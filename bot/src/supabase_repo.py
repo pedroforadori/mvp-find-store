@@ -2,7 +2,7 @@ from typing import List, Optional
 
 import psycopg2.errors
 
-from .models import Lead, LeadParaContato
+from .models import Lead, LeadArmazenado, LeadParaContato
 
 _INSERT_LEAD_BASE = """
     INSERT INTO leads (
@@ -59,6 +59,51 @@ _INSERT_DIAGNOSTICO = """
 """
 
 
+_SELECT_LEADS_PARA_RECALCULO = """
+    SELECT l.id, l.place_id, l.telefone_normalizado, l.nome_loja, l.nicho, l.cidade,
+           l.endereco, l.site_url, l.instagram_handle, l.categoria, l.score,
+           l.prioridade, l.status, d.pagespeed_mobile
+    FROM leads l
+    LEFT JOIN leads_diagnostico d ON d.lead_id = l.id
+    ORDER BY l.id
+"""
+
+_UPDATE_RECALCULO = """
+    UPDATE leads
+    SET categoria = %(categoria)s, score = %(score)s, prioridade = %(prioridade)s,
+        site_url = %(site_url)s, instagram_handle = %(instagram_handle)s,
+        status = CASE WHEN %(descartar_se_novo)s AND status = 'novo' THEN 'descartado' ELSE status END,
+        atualizado_em = now()
+    WHERE id = %(id)s
+"""
+
+_UPSERT_DIAGNOSTICO = _INSERT_DIAGNOSTICO + """
+    ON CONFLICT (lead_id) DO UPDATE SET
+        tem_ssl = EXCLUDED.tem_ssl,
+        pagespeed_mobile = EXCLUDED.pagespeed_mobile,
+        tem_meta_tags = EXCLUDED.tem_meta_tags,
+        tecnologia_detectada = EXCLUDED.tecnologia_detectada,
+        tem_botao_whatsapp = EXCLUDED.tem_botao_whatsapp,
+        instagram_ativo_30d = EXCLUDED.instagram_ativo_30d,
+        tem_checkout = EXCLUDED.tem_checkout,
+        verificado_em = now()
+"""
+
+
+def _params_diagnostico(lead_id: int, lead: Lead) -> dict:
+    sinais = lead.sinais
+    return {
+        "lead_id": lead_id,
+        "tem_ssl": sinais.tem_ssl,
+        "pagespeed_mobile": sinais.pagespeed_mobile,
+        "tem_meta_tags": sinais.tem_meta_tags,
+        "tecnologia_detectada": sinais.tecnologia_detectada,
+        "tem_botao_whatsapp": sinais.tem_botao_whatsapp,
+        "instagram_ativo_30d": sinais.instagram_ativo_30d,
+        "tem_checkout": sinais.tem_checkout,
+    }
+
+
 class LeadRepository:
     """Camada de acesso ao Supabase para gravação de leads (bot Python).
 
@@ -110,19 +155,30 @@ class LeadRepository:
         return row[0]
 
     def inserir_diagnostico(self, lead_id: int, lead: Lead) -> None:
-        sinais = lead.sinais
-        params = {
-            "lead_id": lead_id,
-            "tem_ssl": sinais.tem_ssl,
-            "pagespeed_mobile": sinais.pagespeed_mobile,
-            "tem_meta_tags": sinais.tem_meta_tags,
-            "tecnologia_detectada": sinais.tecnologia_detectada,
-            "tem_botao_whatsapp": sinais.tem_botao_whatsapp,
-            "instagram_ativo_30d": sinais.instagram_ativo_30d,
-            "tem_checkout": sinais.tem_checkout,
-        }
         with self._conn.cursor() as cur:
-            cur.execute(_INSERT_DIAGNOSTICO, params)
+            cur.execute(_INSERT_DIAGNOSTICO, _params_diagnostico(lead_id, lead))
+        self._conn.commit()
+
+    def buscar_leads_para_recalculo(self) -> List[LeadArmazenado]:
+        with self._conn.cursor() as cur:
+            cur.execute(_SELECT_LEADS_PARA_RECALCULO)
+            rows = cur.fetchall()
+        return [LeadArmazenado(*row) for row in rows]
+
+    def atualizar_recalculo(self, lead_id: int, lead: Lead, descartar_se_novo: bool) -> None:
+        """Grava categoria/score/prioridade recalculados e o diagnóstico novo
+        numa única transação."""
+        with self._conn.cursor() as cur:
+            cur.execute(_UPDATE_RECALCULO, {
+                "id": lead_id,
+                "categoria": lead.categoria,
+                "score": lead.score,
+                "prioridade": lead.prioridade,
+                "site_url": lead.site_url,
+                "instagram_handle": lead.instagram_handle,
+                "descartar_se_novo": descartar_se_novo,
+            })
+            cur.execute(_UPSERT_DIAGNOSTICO, _params_diagnostico(lead_id, lead))
         self._conn.commit()
 
     def buscar_leads_por_status(self, status: str) -> List[LeadParaContato]:

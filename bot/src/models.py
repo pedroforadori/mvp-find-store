@@ -38,6 +38,26 @@ class Lead:
 
 
 @dataclass
+class LeadArmazenado:
+    """Projeção de `leads` + `leads_diagnostico` usada para recalcular o score."""
+
+    id: int
+    place_id: Optional[str]
+    telefone_normalizado: Optional[str]
+    nome_loja: str
+    nicho: Optional[str]
+    cidade: str
+    endereco: Optional[str]
+    site_url: Optional[str]
+    instagram_handle: Optional[str]
+    categoria: Optional[str]
+    score: int
+    prioridade: Optional[str]
+    status: str
+    pagespeed_mobile: Optional[int]
+
+
+@dataclass
 class LeadParaContato:
     """Projeção de `leads` usada pela lógica de disparo (1º contato/follow-up)."""
 
