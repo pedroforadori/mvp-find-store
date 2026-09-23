@@ -4,9 +4,9 @@ from typing import Optional
 # Espelhado em backend/src/leads/contato-manual.ts (modo manual). Um único
 # texto para todas as categorias: todo lead qualificado ainda não tem loja online.
 MENSAGEM_PRIMEIRO_CONTATO = (
-    "Oi! {apresentacao}Ajudo lojas físicas a venderem também pela internet. "
-    "A {nome_loja} apareceu na minha busca por {nicho} em {bairro}, mas sem link "
-    "de loja online — é algo que vocês já pensaram em ter?"
+    "Oi! {apresentacao} lojas físicas a venderem online ou terem um site de "
+    "apresentação. Encontrei a {nome_loja} buscando por {nicho} em {bairro}, mas "
+    "sem nenhum link de site ou loja — vocês já pensaram nisso?"
 )
 
 NICHO_PADRAO = "lojas"
@@ -30,7 +30,7 @@ def extrair_bairro(endereco: Optional[str], cidade: str) -> str:
 def montar_mensagem_primeiro_contato(lead, nome_remetente: str = "") -> str:
     nome = nome_remetente.strip()
     return MENSAGEM_PRIMEIRO_CONTATO.format(
-        apresentacao=f"Sou {nome}. " if nome else "",
+        apresentacao=f"Sou {nome}, ajudo" if nome else "Ajudo",
         nome_loja=lead.nome_loja,
         nicho=(lead.nicho or "").strip() or NICHO_PADRAO,
         bairro=extrair_bairro(lead.endereco, lead.cidade),

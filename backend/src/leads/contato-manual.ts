@@ -8,9 +8,9 @@ export const MAX_TENTATIVAS = 2;
 // Espelha bot/src/mensagens.py. Um único texto para todas as categorias: todo
 // lead qualificado, por definição, ainda não tem loja online.
 const MENSAGEM_PRIMEIRO_CONTATO =
-  'Oi! {apresentacao}Ajudo lojas físicas a venderem também pela internet. ' +
-  'A {nome_loja} apareceu na minha busca por {nicho} em {bairro}, mas sem link ' +
-  'de loja online — é algo que vocês já pensaram em ter?';
+  'Oi! {apresentacao} lojas físicas a venderem online ou terem um site de ' +
+  'apresentação. Encontrei a {nome_loja} buscando por {nicho} em {bairro}, mas ' +
+  'sem nenhum link de site ou loja — vocês já pensaram nisso?';
 
 const NICHO_PADRAO = 'lojas';
 
@@ -65,13 +65,13 @@ export function contatoPendente(lead: Lead, agora: Date): TipoContato | null {
   return parseTimestampUtc(lead.data_ultimo_contato).getTime() <= limite ? 'followup' : null;
 }
 
-/** `nomeRemetente` vazio omite o "Sou X." em vez de deixar um buraco no texto. */
+/** `nomeRemetente` vazio omite o "Sou X," em vez de deixar um buraco no texto. */
 export function montarMensagem(lead: Lead, tipo: TipoContato, nomeRemetente = ''): string {
   if (tipo === 'followup') {
     return MENSAGEM_FOLLOWUP.replace('{nome_loja}', lead.nome_loja);
   }
   const nome = nomeRemetente.trim();
-  return MENSAGEM_PRIMEIRO_CONTATO.replace('{apresentacao}', nome ? `Sou ${nome}. ` : '')
+  return MENSAGEM_PRIMEIRO_CONTATO.replace('{apresentacao}', nome ? `Sou ${nome}, ajudo` : 'Ajudo')
     .replace('{nome_loja}', lead.nome_loja)
     .replace('{nicho}', lead.nicho?.trim() || NICHO_PADRAO)
     .replace('{bairro}', extrairBairro(lead.endereco, lead.cidade));

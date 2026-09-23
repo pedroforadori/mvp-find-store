@@ -153,9 +153,9 @@ ordenar e filtrar no dashboard, não decide se a mensagem é enviada.
 online), com `{remetente}` = env `NOME_REMETENTE`, `{nicho}` = `leads.nicho`
 e `{bairro}` extraído de `leads.endereco` (fallback: cidade):
 
-> Oi! Sou {remetente}. Ajudo lojas físicas a venderem também pela
-> internet. A {nome_loja} apareceu na minha busca por {nicho} em {bairro},
-> mas sem link de loja online — é algo que vocês já pensaram em ter?
+> Oi! Sou {remetente}, ajudo lojas físicas a venderem online ou terem um
+> site de apresentação. Encontrei a {nome_loja} buscando por {nicho} em
+> {bairro}, mas sem nenhum link de site ou loja — vocês já pensaram nisso?
 
 Mantido igual em `bot/src/mensagens.py` e
 `backend/src/leads/contato-manual.ts` — alterar os dois juntos.

@@ -19,9 +19,9 @@ def test_primeiro_contato_com_remetente_loja_nicho_e_bairro():
     mensagem = montar_mensagem_primeiro_contato(_LeadFake(nome_loja="Sasha Calçados"), "Pedro")
 
     assert mensagem == (
-        "Oi! Sou Pedro. Ajudo lojas físicas a venderem também pela internet. "
-        "A Sasha Calçados apareceu na minha busca por loja de calçados em Pinheiros, "
-        "mas sem link de loja online — é algo que vocês já pensaram em ter?"
+        "Oi! Sou Pedro, ajudo lojas físicas a venderem online ou terem um site de "
+        "apresentação. Encontrei a Sasha Calçados buscando por loja de calçados em "
+        "Pinheiros, mas sem nenhum link de site ou loja — vocês já pensaram nisso?"
     )
 
 
@@ -41,7 +41,7 @@ def test_primeiro_contato_sem_remetente_omite_apresentacao():
 def test_primeiro_contato_sem_nicho_nem_endereco_usa_padroes():
     mensagem = montar_mensagem_primeiro_contato(_LeadFake(nome_loja="Loja X", nicho=None, endereco=None))
 
-    assert "na minha busca por lojas em São Paulo" in mensagem
+    assert "buscando por lojas em São Paulo" in mensagem
 
 
 @pytest.mark.parametrize("endereco,bairro", [

@@ -105,9 +105,9 @@ describe('montarMensagem', () => {
 
   it('monta o 1º contato com remetente, loja, nicho e bairro', () => {
     expect(montarMensagem(lojaEmPinheiros, 'primeiro_contato', 'Pedro')).toBe(
-      'Oi! Sou Pedro. Ajudo lojas físicas a venderem também pela internet. ' +
-        'A Sasha Calçados apareceu na minha busca por loja de calçados em Pinheiros, ' +
-        'mas sem link de loja online — é algo que vocês já pensaram em ter?',
+      'Oi! Sou Pedro, ajudo lojas físicas a venderem online ou terem um site de ' +
+        'apresentação. Encontrei a Sasha Calçados buscando por loja de calçados em ' +
+        'Pinheiros, mas sem nenhum link de site ou loja — vocês já pensaram nisso?',
     );
   });
 
@@ -124,7 +124,7 @@ describe('montarMensagem', () => {
 
   it('usa "lojas" e a cidade quando faltam nicho e endereço', () => {
     expect(montarMensagem(lead({ nicho: null, endereco: null }), 'primeiro_contato')).toContain(
-      'na minha busca por lojas em São Paulo',
+      'buscando por lojas em São Paulo',
     );
   });
 
