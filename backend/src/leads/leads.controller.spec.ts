@@ -38,7 +38,7 @@ describe('LeadsController (integração)', () => {
     const resposta = await request(app.getHttpServer()).get('/leads').expect(200);
 
     expect(resposta.body).toEqual([{ id: 1, nome_loja: 'Loja Teste' }]);
-    expect(leadsService.listar).toHaveBeenCalledWith({});
+    expect(leadsService.listar).toHaveBeenCalledWith({}, { limit: 30, offset: 0 });
   });
 
   it('GET /leads repassa filtros de query válidos', async () => {
@@ -46,7 +46,7 @@ describe('LeadsController (integração)', () => {
 
     await request(app.getHttpServer()).get('/leads?categoria=sem_site&prioridade=quente').expect(200);
 
-    expect(leadsService.listar).toHaveBeenCalledWith({ categoria: 'sem_site', prioridade: 'quente' });
+    expect(leadsService.listar).toHaveBeenCalledWith({ categoria: 'sem_site', prioridade: 'quente' }, { limit: 30, offset: 0 });
   });
 
   it('GET /leads rejeita categoria inválida', async () => {
@@ -58,7 +58,7 @@ describe('LeadsController (integração)', () => {
 
     await request(app.getHttpServer()).get('/leads?pendente_contato=true&categoria=sem_site').expect(200);
 
-    expect(leadsService.listar).toHaveBeenCalledWith({ categoria: 'sem_site', pendente_contato: true });
+    expect(leadsService.listar).toHaveBeenCalledWith({ categoria: 'sem_site', pendente_contato: true }, { limit: 30, offset: 0 });
   });
 
   it('GET /leads ignora pendente_contato=false', async () => {
@@ -66,11 +66,23 @@ describe('LeadsController (integração)', () => {
 
     await request(app.getHttpServer()).get('/leads?pendente_contato=false').expect(200);
 
-    expect(leadsService.listar).toHaveBeenCalledWith({});
+    expect(leadsService.listar).toHaveBeenCalledWith({}, { limit: 30, offset: 0 });
   });
 
   it('GET /leads rejeita pendente_contato inválido', async () => {
     await request(app.getHttpServer()).get('/leads?pendente_contato=sim').expect(400);
+  });
+
+  it('GET /leads converte limit/offset em números', async () => {
+    leadsService.listar.mockResolvedValue([]);
+
+    await request(app.getHttpServer()).get('/leads?limit=10&offset=20').expect(200);
+
+    expect(leadsService.listar).toHaveBeenCalledWith({}, { limit: 10, offset: 20 });
+  });
+
+  it.each(['limit=0', 'limit=101', 'limit=abc', 'offset=-1'])('GET /leads rejeita paginação inválida (%s)', async (query) => {
+    await request(app.getHttpServer()).get(`/leads?${query}`).expect(400);
   });
 
   it('POST /leads/:id/contato-manual registra o envio', async () => {

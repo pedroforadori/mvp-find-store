@@ -1,37 +1,82 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { atualizarStatusLead, listarLeads, registrarContatoManual } from '../api/leadsApi';
 import type { FiltrosLeads, Lead, Status } from '../types/lead';
 import { LeadCard } from './LeadCard';
 import { LeadsFilters } from './LeadsFilters';
 
+export const TAMANHO_PAGINA = 30;
+
 export function LeadsList() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filtros, setFiltros] = useState<FiltrosLeads>({});
   const [carregando, setCarregando] = useState(true);
+  const [carregandoMais, setCarregandoMais] = useState(false);
+  const [temMais, setTemMais] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [idAtualizando, setIdAtualizando] = useState<number | null>(null);
+  const [sentinela, setSentinela] = useState<HTMLElement | null>(null);
+  // Incrementa a cada troca de filtro para descartar páginas de buscas antigas.
+  const versaoBusca = useRef(0);
 
   useEffect(() => {
-    let cancelado = false;
+    const versao = ++versaoBusca.current;
     setCarregando(true);
+    setCarregandoMais(false);
     setErro(null);
 
-    listarLeads(filtros)
+    listarLeads(filtros, { limit: TAMANHO_PAGINA, offset: 0 })
       .then((resultado) => {
-        if (!cancelado) setLeads(resultado);
+        if (versao !== versaoBusca.current) return;
+        setLeads(resultado);
+        setTemMais(resultado.length === TAMANHO_PAGINA);
       })
       .catch(() => {
-        if (!cancelado) setErro('Não foi possível carregar os leads.');
+        if (versao === versaoBusca.current) setErro('Não foi possível carregar os leads.');
       })
       .finally(() => {
-        if (!cancelado) setCarregando(false);
+        if (versao === versaoBusca.current) setCarregando(false);
       });
-
-    return () => {
-      cancelado = true;
-    };
   }, [filtros]);
+
+  const carregarMais = useCallback(() => {
+    const versao = versaoBusca.current;
+    setCarregandoMais(true);
+
+    listarLeads(filtros, { limit: TAMANHO_PAGINA, offset: leads.length })
+      .then((resultado) => {
+        if (versao !== versaoBusca.current) return;
+        // Um lead pode mudar de posição entre páginas (ex.: status alterado);
+        // ignora os que já estão na lista.
+        setLeads((atual) => {
+          const ids = new Set(atual.map((lead) => lead.id));
+          return [...atual, ...resultado.filter((lead) => !ids.has(lead.id))];
+        });
+        setTemMais(resultado.length === TAMANHO_PAGINA);
+      })
+      .catch(() => {
+        if (versao !== versaoBusca.current) return;
+        setErro('Não foi possível carregar mais leads.');
+        setTemMais(false);
+      })
+      .finally(() => {
+        if (versao === versaoBusca.current) setCarregandoMais(false);
+      });
+  }, [filtros, leads.length]);
+
+  // Busca a próxima página quando o fim da lista se aproxima da área visível.
+  useEffect(() => {
+    if (!sentinela || !temMais || carregando || carregandoMais) return;
+
+    const observador = new IntersectionObserver(
+      (entradas) => {
+        if (entradas.some((entrada) => entrada.isIntersecting)) carregarMais();
+      },
+      { rootMargin: '400px' },
+    );
+    observador.observe(sentinela);
+    return () => observador.disconnect();
+  }, [sentinela, temMais, carregando, carregandoMais, carregarMais]);
 
   async function atualizarLead(id: number, operacao: () => Promise<Lead>, mensagemErro: string) {
     setIdAtualizando(id);
@@ -68,17 +113,21 @@ export function LeadsList() {
       ) : leads.length === 0 ? (
         <p className="text-sm text-gray-500">Nenhum lead encontrado para os filtros selecionados.</p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {leads.map((lead) => (
-            <LeadCard
-              key={lead.id}
-              lead={lead}
-              onStatusChange={handleStatusChange}
-              onRegistrarContato={handleRegistrarContato}
-              atualizando={idAtualizando === lead.id}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-3">
+            {leads.map((lead) => (
+              <LeadCard
+                key={lead.id}
+                lead={lead}
+                onStatusChange={handleStatusChange}
+                onRegistrarContato={handleRegistrarContato}
+                atualizando={idAtualizando === lead.id}
+              />
+            ))}
+          </ul>
+          {temMais && <div ref={setSentinela} aria-hidden="true" className="h-px" />}
+          {carregandoMais && <p className="text-center text-sm text-gray-500">Carregando mais leads…</p>}
+        </>
       )}
     </div>
   );

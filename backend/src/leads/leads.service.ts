@@ -1,21 +1,13 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 
-import { SupabaseService } from '../supabase/supabase.service';
-import {
-  anexarContatoManual,
-  contatoPendente,
-  LeadComContato,
-  montarMensagem,
-  tipoContatoPermitido,
-} from './contato-manual';
+import { FiltrosLeads, Paginacao, SupabaseService } from '../supabase/supabase.service';
+import { anexarContatoManual, LeadComContato, montarMensagem, tipoContatoPermitido } from './contato-manual';
 import { Status } from './leads.constants';
 
-export interface FiltrosLeads {
-  categoria?: string;
-  prioridade?: string;
-  status?: string;
-  pendente_contato?: boolean;
-}
+export type { FiltrosLeads, Paginacao };
+
+export const LIMITE_PADRAO = 30;
+export const LIMITE_MAXIMO = 100;
 
 @Injectable()
 export class LeadsService {
@@ -24,12 +16,14 @@ export class LeadsService {
 
   constructor(private readonly supabase: SupabaseService) {}
 
-  async listar(filtros: FiltrosLeads, agora: Date = new Date()): Promise<LeadComContato[]> {
-    const { pendente_contato, ...filtrosBanco } = filtros;
-    let leads = await this.supabase.listarLeads(filtrosBanco);
-    if (pendente_contato) {
-      leads = leads.filter((lead) => contatoPendente(lead, agora) !== null);
-    }
+  async listar(
+    filtros: FiltrosLeads,
+    paginacao: Paginacao = { limit: LIMITE_PADRAO, offset: 0 },
+    agora: Date = new Date(),
+  ): Promise<LeadComContato[]> {
+    // O filtro de pendentes roda no banco: filtrar em memória depois do
+    // range() devolveria páginas incompletas.
+    const leads = await this.supabase.listarLeads(filtros, paginacao, agora);
     return leads.map((lead) => anexarContatoManual(lead, agora, this.nomeRemetente));
   }
 

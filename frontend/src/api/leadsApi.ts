@@ -9,12 +9,21 @@ async function tratarResposta<T>(resposta: Response): Promise<T> {
   return resposta.json() as Promise<T>;
 }
 
-export async function listarLeads(filtros: FiltrosLeads = {}): Promise<Lead[]> {
+export interface Paginacao {
+  limit: number;
+  offset: number;
+}
+
+export async function listarLeads(filtros: FiltrosLeads = {}, paginacao?: Paginacao): Promise<Lead[]> {
   const params = new URLSearchParams();
   if (filtros.categoria) params.set('categoria', filtros.categoria);
   if (filtros.prioridade) params.set('prioridade', filtros.prioridade);
   if (filtros.status) params.set('status', filtros.status);
   if (filtros.pendente_contato) params.set('pendente_contato', 'true');
+  if (paginacao) {
+    params.set('limit', String(paginacao.limit));
+    params.set('offset', String(paginacao.offset));
+  }
 
   const query = params.toString();
   const resposta = await fetch(`${API_URL}/leads${query ? `?${query}` : ''}`);

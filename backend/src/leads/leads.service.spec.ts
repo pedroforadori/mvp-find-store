@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 
 import { SupabaseService } from '../supabase/supabase.service';
 import { Lead } from './leads.entity';
-import { LeadsService } from './leads.service';
+import { LeadsService, LIMITE_PADRAO } from './leads.service';
 
 const AGORA = new Date('2026-01-15T12:00:00Z');
 
@@ -56,44 +56,41 @@ describe('LeadsService', () => {
     supabase = module.get(SupabaseService);
   });
 
-  it('lista leads repassando os filtros para o Supabase', async () => {
+  it('lista leads repassando filtros e paginação para o Supabase', async () => {
     supabase.listarLeads.mockResolvedValue([lead({ status: 'destaque' })]);
 
-    const resultado = await service.listar({ categoria: 'sem_site' }, AGORA);
+    const resultado = await service.listar({ categoria: 'sem_site' }, { limit: 10, offset: 20 }, AGORA);
 
-    expect(supabase.listarLeads).toHaveBeenCalledWith({ categoria: 'sem_site' });
+    expect(supabase.listarLeads).toHaveBeenCalledWith({ categoria: 'sem_site' }, { limit: 10, offset: 20 }, AGORA);
     expect(resultado).toEqual([{ ...lead({ status: 'destaque' }), contato_manual: null }]);
+  });
+
+  it('usa a primeira página com o limite padrão quando a paginação é omitida', async () => {
+    supabase.listarLeads.mockResolvedValue([]);
+
+    await service.listar({});
+
+    expect(supabase.listarLeads).toHaveBeenCalledWith({}, { limit: LIMITE_PADRAO, offset: 0 }, expect.any(Date));
   });
 
   it('anexa a mensagem sugerida aos leads com contato pendente', async () => {
     supabase.listarLeads.mockResolvedValue([lead()]);
 
-    const [resultado] = await service.listar({}, AGORA);
+    const [resultado] = await service.listar({}, undefined, AGORA);
 
     expect(resultado.contato_manual?.tipo).toBe('primeiro_contato');
   });
 
-  it('filtra só pendentes de contato sem repassar o filtro ao Supabase', async () => {
-    const novo = lead({ id: 1 });
-    const followupVencido = lead({
-      id: 2,
-      status: 'contatado',
-      tentativas: 1,
-      data_ultimo_contato: '2026-01-10T12:00:00',
-    });
-    const followupNoPrazo = lead({
-      id: 3,
-      status: 'contatado',
-      tentativas: 1,
-      data_ultimo_contato: '2026-01-14T12:00:00',
-    });
-    const destaque = lead({ id: 4, status: 'destaque' });
-    supabase.listarLeads.mockResolvedValue([novo, followupVencido, followupNoPrazo, destaque]);
+  it('repassa o filtro de pendentes ao Supabase para filtrar antes de paginar', async () => {
+    supabase.listarLeads.mockResolvedValue([]);
 
-    const resultado = await service.listar({ prioridade: 'quente', pendente_contato: true }, AGORA);
+    await service.listar({ prioridade: 'quente', pendente_contato: true }, { limit: 30, offset: 0 }, AGORA);
 
-    expect(supabase.listarLeads).toHaveBeenCalledWith({ prioridade: 'quente' });
-    expect(resultado.map((l) => l.id)).toEqual([1, 2]);
+    expect(supabase.listarLeads).toHaveBeenCalledWith(
+      { prioridade: 'quente', pendente_contato: true },
+      { limit: 30, offset: 0 },
+      AGORA,
+    );
   });
 
   it('atualiza o status quando o lead existe', async () => {

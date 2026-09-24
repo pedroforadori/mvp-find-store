@@ -65,6 +65,21 @@ export function contatoPendente(lead: Lead, agora: Date): TipoContato | null {
   return parseTimestampUtc(lead.data_ultimo_contato).getTime() <= limite ? 'followup' : null;
 }
 
+/**
+ * Mesma regra de `contatoPendente` como filtro `or` do PostgREST, para o banco
+ * filtrar antes de paginar. Não cobre o `telefone_normalizado` não nulo, que
+ * fica a cargo de quem monta a query.
+ */
+export function filtroPendentePostgrest(agora: Date): string {
+  const limite = new Date(agora.getTime() - DIAS_ENTRE_FOLLOWUP * 24 * 60 * 60 * 1000);
+  // Coluna TIMESTAMP sem fuso gravada em UTC: compara sem o "Z".
+  const limiteUtc = limite.toISOString().replace('Z', '');
+  return (
+    'status.eq.novo,' +
+    `and(status.eq.contatado,tentativas.lt.${MAX_TENTATIVAS},data_ultimo_contato.lte.${limiteUtc})`
+  );
+}
+
 /** `nomeRemetente` vazio omite o "Sou X," em vez de deixar um buraco no texto. */
 export function montarMensagem(lead: Lead, tipo: TipoContato, nomeRemetente = ''): string {
   if (tipo === 'followup') {

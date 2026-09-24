@@ -1,9 +1,9 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import * as leadsApi from '../api/leadsApi';
 import type { Lead } from '../types/lead';
-import { LeadsList } from './LeadsList';
+import { LeadsList, TAMANHO_PAGINA } from './LeadsList';
 
 jest.mock('../api/leadsApi');
 
@@ -36,9 +36,107 @@ const lead: Lead = {
   },
 };
 
+// jsdom não implementa IntersectionObserver: o mock guarda os callbacks para
+// o teste simular a sentinela do fim da lista entrando na tela.
+let observadores: { callback: IntersectionObserverCallback; alvos: Element[] }[] = [];
+
+class IntersectionObserverMock {
+  private readonly registro: { callback: IntersectionObserverCallback; alvos: Element[] };
+
+  constructor(callback: IntersectionObserverCallback) {
+    this.registro = { callback, alvos: [] };
+    observadores.push(this.registro);
+  }
+
+  observe(alvo: Element) {
+    this.registro.alvos.push(alvo);
+  }
+
+  disconnect() {
+    observadores = observadores.filter((registro) => registro !== this.registro);
+  }
+
+  unobserve() {}
+  takeRecords() {
+    return [];
+  }
+}
+
+function rolarAteOFim() {
+  act(() => {
+    for (const { callback, alvos } of observadores) {
+      callback(
+        alvos.map((alvo) => ({ isIntersecting: true, target: alvo }) as IntersectionObserverEntry),
+        {} as IntersectionObserver,
+      );
+    }
+  });
+}
+
+function paginaDeLeads(inicio: number, quantidade: number): Lead[] {
+  return Array.from({ length: quantidade }, (_, i) => ({
+    ...lead,
+    id: inicio + i,
+    nome_loja: `Loja ${inicio + i}`,
+  }));
+}
+
 describe('LeadsList', () => {
+  beforeEach(() => {
+    observadores = [];
+    window.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver;
+  });
+
   afterEach(() => {
     jest.resetAllMocks();
+  });
+
+  it('carrega a próxima página ao rolar até o fim da lista', async () => {
+    leadsApiMock.listarLeads
+      .mockResolvedValueOnce(paginaDeLeads(1, TAMANHO_PAGINA))
+      .mockResolvedValueOnce(paginaDeLeads(TAMANHO_PAGINA + 1, 5));
+
+    render(<LeadsList />);
+    await screen.findByText('Loja 1');
+    expect(screen.queryByText(`Loja ${TAMANHO_PAGINA + 1}`)).not.toBeInTheDocument();
+
+    rolarAteOFim();
+
+    expect(await screen.findByText(`Loja ${TAMANHO_PAGINA + 1}`)).toBeInTheDocument();
+    expect(leadsApiMock.listarLeads).toHaveBeenLastCalledWith({}, { limit: TAMANHO_PAGINA, offset: TAMANHO_PAGINA });
+    expect(screen.getAllByRole('listitem')).toHaveLength(TAMANHO_PAGINA + 5);
+
+    // Página incompleta: não há mais o que buscar.
+    rolarAteOFim();
+    expect(leadsApiMock.listarLeads).toHaveBeenCalledTimes(2);
+  });
+
+  it('não observa o fim da lista quando a primeira página já veio incompleta', async () => {
+    leadsApiMock.listarLeads.mockResolvedValue([lead]);
+
+    render(<LeadsList />);
+    await screen.findByText('Loja da Esquina');
+
+    expect(observadores).toHaveLength(0);
+  });
+
+  it('volta para a primeira página ao trocar o filtro', async () => {
+    leadsApiMock.listarLeads
+      .mockResolvedValueOnce(paginaDeLeads(1, TAMANHO_PAGINA))
+      .mockResolvedValueOnce(paginaDeLeads(100, 2));
+    const usuario = userEvent.setup();
+
+    render(<LeadsList />);
+    await screen.findByText('Loja 1');
+
+    await usuario.selectOptions(screen.getByLabelText('Filtrar por categoria'), 'sem_site');
+
+    expect(await screen.findByText('Loja 100')).toBeInTheDocument();
+    expect(screen.queryByText('Loja 1')).not.toBeInTheDocument();
+    expect(leadsApiMock.listarLeads).toHaveBeenLastCalledWith(
+      { categoria: 'sem_site' },
+      { limit: TAMANHO_PAGINA, offset: 0 },
+    );
   });
 
   it('lista os leads retornados pela API', async () => {
@@ -48,7 +146,7 @@ describe('LeadsList', () => {
 
     expect(screen.getByText('Carregando leads…')).toBeInTheDocument();
     expect(await screen.findByText('Loja da Esquina')).toBeInTheDocument();
-    expect(leadsApiMock.listarLeads).toHaveBeenCalledWith({});
+    expect(leadsApiMock.listarLeads).toHaveBeenCalledWith({}, { limit: TAMANHO_PAGINA, offset: 0 });
   });
 
   it('exibe mensagem de lista vazia quando não há leads', async () => {
@@ -76,7 +174,7 @@ describe('LeadsList', () => {
 
     await usuario.selectOptions(screen.getByLabelText('Filtrar por categoria'), 'sem_site');
 
-    await waitFor(() => expect(leadsApiMock.listarLeads).toHaveBeenLastCalledWith({ categoria: 'sem_site' }));
+    await waitFor(() => expect(leadsApiMock.listarLeads).toHaveBeenLastCalledWith({ categoria: 'sem_site' }, { limit: TAMANHO_PAGINA, offset: 0 }));
   });
 
   it('atualiza o status do lead ao selecionar uma nova opção', async () => {
@@ -101,7 +199,7 @@ describe('LeadsList', () => {
 
     await usuario.click(screen.getByLabelText('Só pendentes de contato'));
 
-    await waitFor(() => expect(leadsApiMock.listarLeads).toHaveBeenLastCalledWith({ pendente_contato: true }));
+    await waitFor(() => expect(leadsApiMock.listarLeads).toHaveBeenLastCalledWith({ pendente_contato: true }, { limit: TAMANHO_PAGINA, offset: 0 }));
   });
 
   it('registra o envio manual e atualiza o card', async () => {

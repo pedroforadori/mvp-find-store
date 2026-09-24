@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+import { filtroPendentePostgrest } from '../leads/contato-manual';
 import { Lead } from '../leads/leads.entity';
 import { Status } from '../leads/leads.constants';
 
@@ -8,6 +9,12 @@ export interface FiltrosLeads {
   categoria?: string;
   prioridade?: string;
   status?: string;
+  pendente_contato?: boolean;
+}
+
+export interface Paginacao {
+  limit: number;
+  offset: number;
 }
 
 @Injectable()
@@ -21,20 +28,25 @@ export class SupabaseService {
     );
   }
 
-  async listarLeads(filtros: FiltrosLeads): Promise<Lead[]> {
+  async listarLeads(filtros: FiltrosLeads, paginacao: Paginacao, agora: Date = new Date()): Promise<Lead[]> {
     // Prioridade é derivada do score, então ordenar por score já põe os
-    // quentes primeiro na fila de contato; empate desempata pelo mais novo.
+    // quentes primeiro na fila de contato; empate desempata pelo mais novo
+    // e, por fim, pelo id, para a paginação ser estável.
     let query = this.client
       .from('leads')
       .select('*')
       .order('score', { ascending: false })
-      .order('criado_em', { ascending: false });
+      .order('criado_em', { ascending: false })
+      .order('id', { ascending: false });
 
     if (filtros.categoria) query = query.eq('categoria', filtros.categoria);
     if (filtros.prioridade) query = query.eq('prioridade', filtros.prioridade);
     if (filtros.status) query = query.eq('status', filtros.status);
+    if (filtros.pendente_contato) {
+      query = query.not('telefone_normalizado', 'is', null).or(filtroPendentePostgrest(agora));
+    }
 
-    const { data, error } = await query;
+    const { data, error } = await query.range(paginacao.offset, paginacao.offset + paginacao.limit - 1);
     if (error) throw error;
     return data ?? [];
   }
