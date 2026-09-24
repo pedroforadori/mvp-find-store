@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { atualizarStatusLead, listarLeads, registrarContatoManual } from '../api/leadsApi';
-import type { FiltrosLeads, Lead, Status } from '../types/lead';
+import { atualizarStatusLead, contarLeads, listarLeads, registrarContatoManual } from '../api/leadsApi';
+import type { ContagemLeads, FiltrosLeads, Lead, LeadExcluido, Status } from '../types/lead';
 import { LeadCard } from './LeadCard';
+import { LeadsCounter } from './LeadsCounter';
 import { LeadsFilters } from './LeadsFilters';
 
 export const TAMANHO_PAGINA = 30;
 
 export function LeadsList() {
+  const [contagem, setContagem] = useState<ContagemLeads | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filtros, setFiltros] = useState<FiltrosLeads>({});
   const [carregando, setCarregando] = useState(true);
@@ -18,6 +20,15 @@ export function LeadsList() {
   const [sentinela, setSentinela] = useState<HTMLElement | null>(null);
   // Incrementa a cada troca de filtro para descartar páginas de buscas antigas.
   const versaoBusca = useRef(0);
+
+  // A contagem é secundária: se falhar, o contador só fica sem números.
+  const atualizarContagem = useCallback(() => {
+    contarLeads()
+      .then(setContagem)
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(atualizarContagem, [atualizarContagem]);
 
   useEffect(() => {
     const versao = ++versaoBusca.current;
@@ -78,11 +89,20 @@ export function LeadsList() {
     return () => observador.disconnect();
   }, [sentinela, temMais, carregando, carregandoMais, carregarMais]);
 
-  async function atualizarLead(id: number, operacao: () => Promise<Lead>, mensagemErro: string) {
+  async function atualizarLead(
+    id: number,
+    operacao: () => Promise<Lead | LeadExcluido>,
+    mensagemErro: string,
+  ) {
     setIdAtualizando(id);
     try {
-      const leadAtualizado = await operacao();
-      setLeads((atual) => atual.map((lead) => (lead.id === id ? leadAtualizado : lead)));
+      const resultado = await operacao();
+      setLeads((atual) =>
+        'excluido' in resultado
+          ? atual.filter((lead) => lead.id !== id)
+          : atual.map((lead) => (lead.id === id ? resultado : lead)),
+      );
+      atualizarContagem();
     } catch {
       setErro(mensagemErro);
     } finally {
@@ -91,6 +111,12 @@ export function LeadsList() {
   }
 
   function handleStatusChange(id: number, status: Status) {
+    if (status === 'descartado') {
+      const nome = leads.find((lead) => lead.id === id)?.nome_loja ?? 'este lead';
+      if (!window.confirm(`Descartar ${nome}? O lead será excluído e a loja não será mais prospectada.`)) {
+        return;
+      }
+    }
     return atualizarLead(id, () => atualizarStatusLead(id, status), 'Não foi possível atualizar o status do lead.');
   }
 
@@ -100,6 +126,7 @@ export function LeadsList() {
 
   return (
     <div className="flex flex-col gap-4">
+      <LeadsCounter contagem={contagem} />
       <LeadsFilters filtros={filtros} onChange={setFiltros} />
 
       {erro && (

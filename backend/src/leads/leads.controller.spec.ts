@@ -11,6 +11,7 @@ describe('LeadsController (integração)', () => {
     listar: jest.fn(),
     atualizarStatus: jest.fn(),
     registrarContatoManual: jest.fn(),
+    contar: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -110,6 +111,27 @@ describe('LeadsController (integração)', () => {
 
     expect(resposta.body).toEqual({ id: 1, status: 'destaque' });
     expect(leadsService.atualizarStatus).toHaveBeenCalledWith(1, 'destaque');
+  });
+
+  it('GET /leads/contagem retorna o total e a contagem por status', async () => {
+    const contagem = { total: 3, por_status: { novo: 2, destaque: 1 } };
+    leadsService.contar.mockResolvedValue(contagem);
+
+    const resposta = await request(app.getHttpServer()).get('/leads/contagem').expect(200);
+
+    expect(resposta.body).toEqual(contagem);
+  });
+
+  it('PATCH /leads/:id/status com descartado devolve o lead como excluído', async () => {
+    leadsService.atualizarStatus.mockResolvedValue({ id: 1, excluido: true });
+
+    const resposta = await request(app.getHttpServer())
+      .patch('/leads/1/status')
+      .send({ status: 'descartado' })
+      .expect(200);
+
+    expect(resposta.body).toEqual({ id: 1, excluido: true });
+    expect(leadsService.atualizarStatus).toHaveBeenCalledWith(1, 'descartado');
   });
 
   it('PATCH /leads/:id/status rejeita status inválido', async () => {

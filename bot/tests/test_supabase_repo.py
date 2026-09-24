@@ -225,11 +225,39 @@ def test_atualizar_recalculo_grava_lead_e_upsert_do_diagnostico_na_mesma_transac
     conn, cursor = _mock_conn_fetchall([])
     repo = LeadRepository(conn)
 
-    repo.atualizar_recalculo(5, _lead(categoria="descartado", score=0), descartar_se_novo=True)
+    repo.atualizar_recalculo(5, _lead(score=90))
 
     [(update_sql, update_params), (diag_sql, diag_params)] = [c[0] for c in cursor.execute.call_args_list]
-    assert "UPDATE leads" in update_sql and "status = 'novo' THEN 'descartado'" in update_sql
-    assert update_params["id"] == 5 and update_params["descartar_se_novo"] is True
+    assert "UPDATE leads" in update_sql and "status" not in update_sql
+    assert update_params["id"] == 5 and update_params["score"] == 90
     assert "ON CONFLICT (lead_id) DO UPDATE" in diag_sql
     assert diag_params["lead_id"] == 5
     conn.commit.assert_called_once()
+
+
+def test_inserir_lead_ignora_loja_bloqueada_por_place_id_ou_telefone():
+    conn, cursor = _mock_conn(None)
+    repo = LeadRepository(conn)
+
+    repo.inserir_lead(_lead())
+
+    query_executada = cursor.execute.call_args[0][0]
+    assert "NOT EXISTS" in query_executada and "leads_bloqueados" in query_executada
+    assert "b.place_id = %(place_id)s OR b.telefone_normalizado = %(telefone_normalizado)s" in query_executada
+
+
+def test_descartar_lead_chama_funcao_do_banco_e_commita():
+    conn, cursor = _mock_conn((True,))
+    repo = LeadRepository(conn)
+
+    assert repo.descartar_lead(5) is True
+    assert cursor.execute.call_args[0] == ("SELECT descartar_lead(%(id)s)", {"id": 5})
+    conn.commit.assert_called_once()
+
+
+def test_buscar_ids_com_status_descartado():
+    conn, cursor = _mock_conn_fetchall([(3,), (8,)])
+    repo = LeadRepository(conn)
+
+    assert repo.buscar_ids_com_status_descartado() == [3, 8]
+    assert "status = 'descartado'" in cursor.execute.call_args[0][0]

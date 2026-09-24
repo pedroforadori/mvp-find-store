@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import * as leadsApi from '../api/leadsApi';
-import type { Lead } from '../types/lead';
+import type { ContagemLeads, Lead } from '../types/lead';
 import { LeadsList, TAMANHO_PAGINA } from './LeadsList';
 
 jest.mock('../api/leadsApi');
@@ -81,10 +81,60 @@ function paginaDeLeads(inicio: number, quantidade: number): Lead[] {
   }));
 }
 
+const contagem: ContagemLeads = {
+  total: 12,
+  por_status: { novo: 7, contatado: 2, aguardando_followup: 1, esgotado: 0, destaque: 2 },
+};
+
 describe('LeadsList', () => {
   beforeEach(() => {
     observadores = [];
     window.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver;
+    leadsApiMock.contarLeads.mockResolvedValue(contagem);
+  });
+
+  it('mostra o total de leads e a contagem por status no topo', async () => {
+    leadsApiMock.listarLeads.mockResolvedValue([lead]);
+
+    render(<LeadsList />);
+
+    expect(await screen.findByTestId('total-leads')).toHaveTextContent('12');
+    expect(screen.getByTestId('contagem-novo')).toHaveTextContent('7');
+    expect(screen.getByTestId('contagem-destaque')).toHaveTextContent('2');
+    expect(screen.queryByTestId('contagem-descartado')).not.toBeInTheDocument();
+  });
+
+  it('descartar exclui o card da lista e recarrega a contagem', async () => {
+    leadsApiMock.listarLeads.mockResolvedValue([lead]);
+    leadsApiMock.atualizarStatusLead.mockResolvedValue({ id: 1, excluido: true });
+    const confirmar = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    const usuario = userEvent.setup();
+
+    render(<LeadsList />);
+    await screen.findByText('Loja da Esquina');
+
+    await usuario.selectOptions(screen.getByLabelText('Status de Loja da Esquina'), 'descartado');
+
+    await waitFor(() => expect(screen.queryByText('Loja da Esquina')).not.toBeInTheDocument());
+    expect(confirmar).toHaveBeenCalled();
+    expect(leadsApiMock.atualizarStatusLead).toHaveBeenCalledWith(1, 'descartado');
+    expect(leadsApiMock.contarLeads).toHaveBeenCalledTimes(2);
+    confirmar.mockRestore();
+  });
+
+  it('não descarta quando o usuário cancela a confirmação', async () => {
+    leadsApiMock.listarLeads.mockResolvedValue([lead]);
+    const confirmar = jest.spyOn(window, 'confirm').mockReturnValue(false);
+    const usuario = userEvent.setup();
+
+    render(<LeadsList />);
+    await screen.findByText('Loja da Esquina');
+
+    await usuario.selectOptions(screen.getByLabelText('Status de Loja da Esquina'), 'descartado');
+
+    expect(leadsApiMock.atualizarStatusLead).not.toHaveBeenCalled();
+    expect(screen.getByText('Loja da Esquina')).toBeInTheDocument();
+    confirmar.mockRestore();
   });
 
   afterEach(() => {
@@ -104,7 +154,7 @@ describe('LeadsList', () => {
 
     expect(await screen.findByText(`Loja ${TAMANHO_PAGINA + 1}`)).toBeInTheDocument();
     expect(leadsApiMock.listarLeads).toHaveBeenLastCalledWith({}, { limit: TAMANHO_PAGINA, offset: TAMANHO_PAGINA });
-    expect(screen.getAllByRole('listitem')).toHaveLength(TAMANHO_PAGINA + 5);
+    expect(screen.getAllByRole('combobox', { name: /^Status de / })).toHaveLength(TAMANHO_PAGINA + 5);
 
     // Página incompleta: não há mais o que buscar.
     rolarAteOFim();

@@ -1,4 +1,4 @@
-import type { FiltrosLeads, Lead, Status } from '../types/lead';
+import type { ContagemLeads, FiltrosLeads, Lead, LeadExcluido, Status } from '../types/lead';
 
 const API_URL = process.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -30,13 +30,19 @@ export async function listarLeads(filtros: FiltrosLeads = {}, paginacao?: Pagina
   return tratarResposta<Lead[]>(resposta);
 }
 
-export async function atualizarStatusLead(id: number, status: Status): Promise<Lead> {
+export async function contarLeads(): Promise<ContagemLeads> {
+  const resposta = await fetch(`${API_URL}/leads/contagem`);
+  return tratarResposta<ContagemLeads>(resposta);
+}
+
+/** Com status 'descartado' o lead é excluído e a API devolve `{ id, excluido: true }`. */
+export async function atualizarStatusLead(id: number, status: Status): Promise<Lead | LeadExcluido> {
   const resposta = await fetch(`${API_URL}/leads/${id}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
-  return tratarResposta<Lead>(resposta);
+  return tratarResposta<Lead | LeadExcluido>(resposta);
 }
 
 export async function registrarContatoManual(id: number): Promise<Lead> {

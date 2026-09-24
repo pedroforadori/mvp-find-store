@@ -47,3 +47,30 @@ describe('SupabaseService.listarLeads', () => {
     );
   });
 });
+
+describe('SupabaseService.descartarLead', () => {
+  it('chama a função descartar_lead do banco', async () => {
+    const rpc = jest.fn().mockResolvedValue({ data: true, error: null });
+    (createClient as jest.Mock).mockReturnValue({ rpc });
+
+    const excluido = await new SupabaseService().descartarLead(5);
+
+    expect(rpc).toHaveBeenCalledWith('descartar_lead', { p_lead_id: 5 });
+    expect(excluido).toBe(true);
+  });
+});
+
+describe('SupabaseService.contarLeadsPorStatus', () => {
+  it('faz um count sem trazer linhas para cada status', async () => {
+    const eq = jest.fn((_coluna: string, status: string) =>
+      Promise.resolve({ count: status === 'novo' ? 5 : 2, error: null }),
+    );
+    const select = jest.fn(() => ({ eq }));
+    (createClient as jest.Mock).mockReturnValue({ from: jest.fn(() => ({ select })) });
+
+    const contagem = await new SupabaseService().contarLeadsPorStatus(['novo', 'destaque']);
+
+    expect(select).toHaveBeenCalledWith('id', { count: 'exact', head: true });
+    expect(contagem).toEqual({ novo: 5, destaque: 2 });
+  });
+});

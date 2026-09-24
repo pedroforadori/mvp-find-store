@@ -17,6 +17,7 @@ describe('WhatsappService', () => {
             buscarLeadPorTelefone: jest.fn(),
             atualizarStatusLead: jest.fn(),
             marcarUltimoContatoRespondido: jest.fn(),
+            descartarLead: jest.fn(),
           },
         },
       ],
@@ -47,20 +48,22 @@ describe('WhatsappService', () => {
       expect(supabase.marcarUltimoContatoRespondido).toHaveBeenCalledWith(10);
     });
 
-    it('marca descartado quando o botão é "não tenho interesse"', async () => {
+    it('exclui o lead quando o botão é "não tenho interesse"', async () => {
       supabase.buscarLeadPorTelefone.mockResolvedValue({ id: 11 } as any);
 
       await service.processarEvento({ telefone: '5511987654321', buttonId: BOTAO_NAO_TENHO_INTERESSE });
 
-      expect(supabase.atualizarStatusLead).toHaveBeenCalledWith(11, 'descartado');
+      expect(supabase.descartarLead).toHaveBeenCalledWith(11);
+      expect(supabase.atualizarStatusLead).not.toHaveBeenCalled();
+      expect(supabase.marcarUltimoContatoRespondido).not.toHaveBeenCalled();
     });
 
-    it('classifica texto livre e atualiza o status', async () => {
+    it('classifica texto livre negativo e exclui o lead', async () => {
       supabase.buscarLeadPorTelefone.mockResolvedValue({ id: 12 } as any);
 
       await service.processarEvento({ telefone: '5511987654321', textoLivre: 'não quero mais' });
 
-      expect(supabase.atualizarStatusLead).toHaveBeenCalledWith(12, 'descartado');
+      expect(supabase.descartarLead).toHaveBeenCalledWith(12);
     });
 
     it('ignora evento quando o telefone é inválido', async () => {

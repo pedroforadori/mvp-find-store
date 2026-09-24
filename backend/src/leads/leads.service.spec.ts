@@ -47,6 +47,8 @@ describe('LeadsService', () => {
             buscarLeadPorId: jest.fn(),
             atualizarStatusLead: jest.fn(),
             registrarContatoManual: jest.fn(),
+            descartarLead: jest.fn(),
+            contarLeadsPorStatus: jest.fn(),
           },
         },
       ],
@@ -100,7 +102,7 @@ describe('LeadsService', () => {
     const resultado = await service.atualizarStatus(1, 'destaque');
 
     expect(supabase.atualizarStatusLead).toHaveBeenCalledWith(1, 'destaque');
-    expect(resultado.status).toBe('destaque');
+    expect(resultado).toMatchObject({ status: 'destaque' });
   });
 
   it('lança NotFoundException quando o lead não existe', async () => {
@@ -108,6 +110,42 @@ describe('LeadsService', () => {
 
     await expect(service.atualizarStatus(999, 'destaque')).rejects.toBeInstanceOf(NotFoundException);
     expect(supabase.atualizarStatusLead).not.toHaveBeenCalled();
+  });
+
+  it('descartar exclui o lead em vez de só trocar o status', async () => {
+    supabase.descartarLead.mockResolvedValue(true);
+
+    const resultado = await service.atualizarStatus(7, 'descartado');
+
+    expect(supabase.descartarLead).toHaveBeenCalledWith(7);
+    expect(supabase.atualizarStatusLead).not.toHaveBeenCalled();
+    expect(resultado).toEqual({ id: 7, excluido: true });
+  });
+
+  it('descartar lead inexistente lança NotFoundException', async () => {
+    supabase.descartarLead.mockResolvedValue(false);
+
+    await expect(service.atualizarStatus(999, 'descartado')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('conta leads por status (sem descartado) e soma o total', async () => {
+    supabase.contarLeadsPorStatus.mockResolvedValue({
+      novo: 10,
+      contatado: 4,
+      aguardando_followup: 2,
+      esgotado: 1,
+      destaque: 3,
+    } as never);
+
+    const resultado = await service.contar();
+
+    expect(supabase.contarLeadsPorStatus).toHaveBeenCalledWith(
+      ['novo', 'contatado', 'aguardando_followup', 'esgotado', 'destaque'],
+    );
+    expect(resultado).toEqual({
+      total: 20,
+      por_status: { novo: 10, contatado: 4, aguardando_followup: 2, esgotado: 1, destaque: 3 },
+    });
   });
 
   describe('registrarContatoManual', () => {

@@ -20,6 +20,23 @@ export const STATUSES = [
 ] as const;
 export type Status = (typeof STATUSES)[number];
 
+/** Lead descartado é excluído da base: não aparece em filtro nem em contagem. */
+export const STATUSES_ATIVOS = STATUSES.filter(
+  (status): status is Exclude<Status, 'descartado'> => status !== 'descartado',
+);
+export type StatusAtivo = (typeof STATUSES_ATIVOS)[number];
+
+export interface ContagemLeads {
+  total: number;
+  por_status: Record<StatusAtivo, number>;
+}
+
+/** Resposta do PATCH de status ao descartar: o lead foi excluído. */
+export interface LeadExcluido {
+  id: number;
+  excluido: true;
+}
+
 export interface ContatoManual {
   tipo: 'primeiro_contato' | 'followup';
   mensagem: string;
@@ -53,6 +70,6 @@ export interface Lead {
 export interface FiltrosLeads {
   categoria?: Categoria;
   prioridade?: Prioridade;
-  status?: Status;
+  status?: StatusAtivo;
   pendente_contato?: boolean;
 }

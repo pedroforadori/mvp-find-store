@@ -120,11 +120,11 @@ def test_executar_recalculo_aplica_apenas_leads_alterados():
     assert contagens["alterados"] == 1
     repo.atualizar_recalculo.assert_called_once()
     assert repo.atualizar_recalculo.call_args[0][0] == 2
-    assert repo.atualizar_recalculo.call_args[1] == {"descartar_se_novo": False}
+    repo.descartar_lead.assert_not_called()
 
 
-def test_executar_recalculo_marca_descarte():
-    repo = _repo([_registro()])
+def test_executar_recalculo_exclui_lead_novo_descartado():
+    repo = _repo([_registro(id=4)])
 
     contagens = executar_recalculo(
         repo, aplicar=True, recalcular=lambda r: _lead(categoria="descartado", score=0, prioridade="baixa")
@@ -132,7 +132,19 @@ def test_executar_recalculo_marca_descarte():
 
     assert contagens["descartados"] == 1
     assert contagens["prioridade_depois"]["descartado"] == 1
-    assert repo.atualizar_recalculo.call_args[1] == {"descartar_se_novo": True}
+    repo.descartar_lead.assert_called_once_with(4)
+    repo.atualizar_recalculo.assert_not_called()
+
+
+def test_executar_recalculo_mantem_lead_ja_contatado_que_vira_descartado():
+    repo = _repo([_registro(id=4, status="contatado")])
+
+    executar_recalculo(
+        repo, aplicar=True, recalcular=lambda r: _lead(categoria="descartado", score=0, prioridade="baixa")
+    )
+
+    repo.descartar_lead.assert_not_called()
+    repo.atualizar_recalculo.assert_called_once()
 
 
 def test_executar_recalculo_continua_apos_erro_em_um_lead():

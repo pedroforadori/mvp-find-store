@@ -67,6 +67,31 @@ export class SupabaseService {
     return data;
   }
 
+  /**
+   * Exclui o lead e bloqueia place_id/telefone para o bot não reinseri-lo
+   * (função `descartar_lead`, migration 0002). Retorna false se não existia.
+   */
+  async descartarLead(id: number): Promise<boolean> {
+    const { data, error } = await this.client.rpc('descartar_lead', { p_lead_id: id });
+    if (error) throw error;
+    return Boolean(data);
+  }
+
+  /** Um count por status (sem trazer linhas), em paralelo. */
+  async contarLeadsPorStatus(statuses: readonly Status[]): Promise<Record<Status, number>> {
+    const contagens = await Promise.all(
+      statuses.map(async (status) => {
+        const { count, error } = await this.client
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', status);
+        if (error) throw error;
+        return [status, count ?? 0] as const;
+      }),
+    );
+    return Object.fromEntries(contagens) as Record<Status, number>;
+  }
+
   async atualizarStatusLead(id: number, status: Status): Promise<Lead> {
     const { data, error } = await this.client
       .from('leads')

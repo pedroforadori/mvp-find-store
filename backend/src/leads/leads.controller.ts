@@ -17,6 +17,11 @@ export class LeadsController {
     });
   }
 
+  @Get('contagem')
+  contar() {
+    return this.leadsService.contar();
+  }
+
   @Patch(':id/status')
   atualizarStatus(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateLeadStatusDto) {
     return this.leadsService.atualizarStatus(id, dto.status);

@@ -1,5 +1,5 @@
-import type { Categoria, FiltrosLeads, Prioridade, Status } from '../types/lead';
-import { CATEGORIAS, PRIORIDADES, STATUSES } from '../types/lead';
+import type { Categoria, FiltrosLeads, Prioridade, StatusAtivo } from '../types/lead';
+import { CATEGORIAS, PRIORIDADES, STATUSES_ATIVOS } from '../types/lead';
 
 interface LeadsFiltersProps {
   filtros: FiltrosLeads;
@@ -57,10 +57,12 @@ export function LeadsFilters({ filtros, onChange }: LeadsFiltersProps) {
           aria-label="Filtrar por status"
           className="rounded border border-gray-300 px-2 py-1 text-sm"
           value={filtros.status ?? ''}
-          onChange={(evento) => onChange({ ...filtros, status: (evento.target.value || undefined) as Status | undefined })}
+          onChange={(evento) =>
+            onChange({ ...filtros, status: (evento.target.value || undefined) as StatusAtivo | undefined })
+          }
         >
           <option value="">Todos</option>
-          {STATUSES.map((status) => (
+          {STATUSES_ATIVOS.map((status) => (
             <option key={status} value={status}>
               {status}
             </option>

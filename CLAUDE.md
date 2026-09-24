@@ -111,6 +111,14 @@ CREATE TABLE historico_contatos (
 );
 ```
 
+### Descarte = exclusão
+Lead descartado (dashboard, webhook ou recálculo de lead `novo`) é
+**excluído** de `leads` pela função `descartar_lead(id)` (migration
+`0002_descarte_exclui_lead.sql`), que antes grava `place_id`/telefone em
+`leads_bloqueados`. O insert do bot ignora lojas bloqueadas, então elas
+nunca voltam. Leads legados com `status = 'descartado'` saem com
+`python limpar_descartados.py --aplicar` (em `bot/`).
+
 ## Pipeline do bot (execução via GitHub Actions)
 1. **Descoberta**: lojas em SP via Google Places API, paginado por
    categoria ampla, sem restringir nicho.
@@ -179,7 +187,7 @@ Mantido igual em `bot/src/mensagens.py` e
 - Botões interativos (não texto livre):
   - "Quero saber mais" → `status = 'destaque'`
   - "Fale comigo depois" → `status = 'destaque'`
-  - "Não tenho interesse" → `status = 'descartado'`, nunca mais contatar.
+  - "Não tenho interesse" → descartado, nunca mais contatar.
 - Follow-up sem resposta: reenviar a cada 3 dias, máx. 2 mensagens no
   total. Sem resposta após a 2ª → `status = 'esgotado'`.
 - Resposta em texto livre: fallback simples por palavras-chave (sem IA

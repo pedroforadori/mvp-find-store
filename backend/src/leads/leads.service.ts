@@ -2,12 +2,26 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 
 import { FiltrosLeads, Paginacao, SupabaseService } from '../supabase/supabase.service';
 import { anexarContatoManual, LeadComContato, montarMensagem, tipoContatoPermitido } from './contato-manual';
-import { Status } from './leads.constants';
+import { Status, STATUSES } from './leads.constants';
 
 export type { FiltrosLeads, Paginacao };
 
 export const LIMITE_PADRAO = 30;
 export const LIMITE_MAXIMO = 100;
+
+/** Resposta do PATCH de status quando o lead é descartado: ele sai da base. */
+export interface LeadExcluido {
+  id: number;
+  excluido: true;
+}
+
+/** Lead descartado é excluído da base, então não entra na contagem. */
+export const STATUSES_CONTADOS = STATUSES.filter((status) => status !== 'descartado');
+
+export interface ContagemLeads {
+  total: number;
+  por_status: Record<Exclude<Status, 'descartado'>, number>;
+}
 
 @Injectable()
 export class LeadsService {
@@ -27,7 +41,22 @@ export class LeadsService {
     return leads.map((lead) => anexarContatoManual(lead, agora, this.nomeRemetente));
   }
 
-  async atualizarStatus(id: number, status: Status): Promise<LeadComContato> {
+  async contar(): Promise<ContagemLeads> {
+    const porStatus = await this.supabase.contarLeadsPorStatus(STATUSES_CONTADOS);
+    const total = Object.values(porStatus).reduce((soma, quantidade) => soma + quantidade, 0);
+    return { total, por_status: porStatus };
+  }
+
+  /** Descartar exclui o lead (e bloqueia a loja contra nova inserção pelo bot). */
+  async atualizarStatus(id: number, status: Status): Promise<LeadComContato | LeadExcluido> {
+    if (status === 'descartado') {
+      const excluido = await this.supabase.descartarLead(id);
+      if (!excluido) {
+        throw new NotFoundException(`Lead ${id} não encontrado`);
+      }
+      return { id, excluido: true };
+    }
+
     const lead = await this.supabase.buscarLeadPorId(id);
     if (!lead) {
       throw new NotFoundException(`Lead ${id} não encontrado`);

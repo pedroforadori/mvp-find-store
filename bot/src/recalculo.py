@@ -41,9 +41,9 @@ def executar_recalculo(repositorio, aplicar: bool = False,
                         max_workers: int = 8) -> dict:
     """Recalcula todos os leads. Sem `aplicar`, só simula e loga as mudanças.
 
-    Lead que passa a ser descartado (ex: loja em Shopify) só tem o status
-    trocado para 'descartado' se ainda for 'novo' — quem já foi contatado
-    mantém o status para não perder o histórico da conversa.
+    Lead que passa a ser descartado (ex: loja em Shopify) só é excluído (e
+    bloqueado) se ainda for 'novo' — quem já foi contatado continua na base
+    para não perder o histórico da conversa.
     """
     registros: List[LeadArmazenado] = repositorio.buscar_leads_para_recalculo()
     contagens = {"total": len(registros), "alterados": 0, "descartados": 0, "erros": 0}
@@ -81,8 +81,12 @@ def executar_recalculo(repositorio, aplicar: bool = False,
             registro.nome_loja, registro.categoria, registro.score, registro.prioridade,
             lead.categoria, lead.score, lead.prioridade,
         )
-        if aplicar:
-            repositorio.atualizar_recalculo(registro.id, lead, descartar_se_novo=descartar)
+        if not aplicar:
+            continue
+        if descartar and registro.status == "novo":
+            repositorio.descartar_lead(registro.id)
+        else:
+            repositorio.atualizar_recalculo(registro.id, lead)
 
     contagens["prioridade_antes"] = antes
     contagens["prioridade_depois"] = depois

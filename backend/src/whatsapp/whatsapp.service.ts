@@ -65,6 +65,12 @@ export class WhatsappService {
       return;
     }
 
+    if (novoStatus === 'descartado') {
+      // Exclui o lead (o histórico vai junto) e bloqueia a loja: nunca mais contatar.
+      await this.supabase.descartarLead(lead.id);
+      return;
+    }
+
     await this.supabase.atualizarStatusLead(lead.id, novoStatus);
     await this.supabase.marcarUltimoContatoRespondido(lead.id);
   }

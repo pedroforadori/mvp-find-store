@@ -8,14 +8,24 @@ _INSERT_LEAD_BASE = """
     INSERT INTO leads (
         place_id, telefone_normalizado, nome_loja, nicho, cidade, endereco,
         instagram_handle, site_url, categoria, score, prioridade
-    ) VALUES (
+    )
+    SELECT
         %(place_id)s, %(telefone_normalizado)s, %(nome_loja)s, %(nicho)s, %(cidade)s,
         %(endereco)s, %(instagram_handle)s, %(site_url)s, %(categoria)s, %(score)s,
         %(prioridade)s
+    WHERE NOT EXISTS (
+        -- Lojas descartadas são excluídas de `leads`, mas continuam bloqueadas
+        -- aqui para não voltarem a ser contatadas.
+        SELECT 1 FROM leads_bloqueados b
+        WHERE b.place_id = %(place_id)s OR b.telefone_normalizado = %(telefone_normalizado)s
     )
     ON CONFLICT ({conflict_target}) DO NOTHING
     RETURNING id
 """
+
+_DESCARTAR_LEAD = "SELECT descartar_lead(%(id)s)"
+
+_SELECT_IDS_STATUS_DESCARTADO = "SELECT id FROM leads WHERE status = 'descartado' ORDER BY id"
 
 _SELECT_LEADS_POR_STATUS = """
     SELECT id, telefone_normalizado, nome_loja, categoria, status, tentativas, data_ultimo_contato,
@@ -73,7 +83,6 @@ _UPDATE_RECALCULO = """
     UPDATE leads
     SET categoria = %(categoria)s, score = %(score)s, prioridade = %(prioridade)s,
         site_url = %(site_url)s, instagram_handle = %(instagram_handle)s,
-        status = CASE WHEN %(descartar_se_novo)s AND status = 'novo' THEN 'descartado' ELSE status END,
         atualizado_em = now()
     WHERE id = %(id)s
 """
@@ -166,7 +175,7 @@ class LeadRepository:
             rows = cur.fetchall()
         return [LeadArmazenado(*row) for row in rows]
 
-    def atualizar_recalculo(self, lead_id: int, lead: Lead, descartar_se_novo: bool) -> None:
+    def atualizar_recalculo(self, lead_id: int, lead: Lead) -> None:
         """Grava categoria/score/prioridade recalculados e o diagnóstico novo
         numa única transação."""
         with self._conn.cursor() as cur:
@@ -177,10 +186,24 @@ class LeadRepository:
                 "prioridade": lead.prioridade,
                 "site_url": lead.site_url,
                 "instagram_handle": lead.instagram_handle,
-                "descartar_se_novo": descartar_se_novo,
             })
             cur.execute(_UPSERT_DIAGNOSTICO, _params_diagnostico(lead_id, lead))
         self._conn.commit()
+
+    def descartar_lead(self, lead_id: int) -> bool:
+        """Exclui o lead e bloqueia place_id/telefone contra nova inserção."""
+        with self._conn.cursor() as cur:
+            cur.execute(_DESCARTAR_LEAD, {"id": lead_id})
+            [excluido] = cur.fetchone()
+        self._conn.commit()
+        return excluido
+
+    def buscar_ids_com_status_descartado(self) -> List[int]:
+        """Leads que ficaram com status 'descartado' de antes da exclusão automática."""
+        with self._conn.cursor() as cur:
+            cur.execute(_SELECT_IDS_STATUS_DESCARTADO)
+            rows = cur.fetchall()
+        return [row[0] for row in rows]
 
     def buscar_leads_por_status(self, status: str) -> List[LeadParaContato]:
         with self._conn.cursor() as cur:
